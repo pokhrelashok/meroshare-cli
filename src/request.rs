@@ -9,7 +9,7 @@ pub async fn make_request(
     url: &str,
     method: reqwest::Method,
     body: Option<Value>,
-    headers: Option<HashMap<&str, &str>>,
+    headers: Option<HashMap<String, String>>,
 ) -> Result<Response, Error> {
     let client = Client::new();
     let mut request_builder = client.request(method, url);
@@ -56,7 +56,6 @@ pub async fn make_request(
     request_builder = request_builder.headers(headers_map);
 
     if let Some(body) = body {
-        print!("{:?}", body);
         let request = request_builder.json(&body).build()?;
         client.execute(request).await
     } else {

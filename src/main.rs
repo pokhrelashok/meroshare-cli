@@ -1,8 +1,9 @@
+mod handler;
 mod meroshare;
 mod request;
-
-use meroshare::init;
+use handler::handle;
 #[tokio::main]
 async fn main() {
-    init().await;
+    // init().await;
+    handle().await;
 }

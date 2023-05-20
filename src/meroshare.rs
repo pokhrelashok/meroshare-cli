@@ -2,6 +2,8 @@
 mod bank;
 #[path = "company.rs"]
 mod company;
+#[path = "ipo_result.rs"]
+mod ipo_result;
 #[path = "request.rs"]
 mod request;
 
@@ -13,6 +15,10 @@ use reqwest::Method;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
+
+use self::company::CompanyApplication;
+use self::ipo_result::IPOResult;
+
 // {
 //     dp: "16700",
 //     username: "15818",
@@ -25,15 +31,13 @@ use std::collections::HashMap;
 
 const BASE_URL: &str = "https://backend.cdsc.com.np/api/meroShare/";
 
-pub async fn init() {
-    let token = get_auth_token().await.unwrap();
-    let mut headers = HashMap::new();
-    headers.insert("Authorization", token.as_str());
-    let banks: Vec<Bank> = get_banks(headers.clone()).await.unwrap();
-    let companies: Vec<Company> = get_current_issue(headers.clone()).await.unwrap();
-}
+// pub async fn init() {
+//     let token = get_auth_header().await.unwrap();
+//     // let banks: Vec<Bank> = get_banks(headers.clone()).await.unwrap();
+//     // let results: Vec<CompanyApplication> = get_application_report(headers.clone()).await.unwrap();
+// }
 
-async fn get_auth_token() -> Result<String, Error> {
+async fn get_auth_header() -> Result<HashMap<String, String>, Error> {
     let url = BASE_URL.to_string() + "auth/";
     let body = json!({
         "clientId":"160",
@@ -43,17 +47,23 @@ async fn get_auth_token() -> Result<String, Error> {
 
     let result = make_request(&url, Method::POST, Some(body), None).await;
     match result {
-        Ok(value) => Ok(value
-            .headers()
-            .get("authorization")
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_owned()),
+        Ok(value) => {
+            let token = value
+                .headers()
+                .get("authorization")
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_owned();
+            let mut headers = HashMap::new();
+            headers.insert(String::from("Authorization"), token.as_str().to_string());
+            Ok(headers)
+        }
         Err(error) => Err(error),
     }
 }
-async fn get_banks(headers: HashMap<&str, &str>) -> Result<Vec<Bank>, Error> {
+
+async fn get_banks(headers: HashMap<String, String>) -> Result<Vec<Bank>, Error> {
     let url = BASE_URL.to_string() + "bank/";
     let result = make_request(&url, Method::GET, None, Some(headers)).await;
     match result {
@@ -66,11 +76,11 @@ async fn get_banks(headers: HashMap<&str, &str>) -> Result<Vec<Bank>, Error> {
 }
 
 #[derive(Debug, Deserialize)]
-struct ApiResponse {
+struct ApiResponseCurrentIssue {
     object: Vec<Company>,
 }
-
-async fn get_current_issue(headers: HashMap<&str, &str>) -> Result<Vec<Company>, Error> {
+pub async fn get_current_issue() -> Result<Vec<Company>, Error> {
+    let headers = get_auth_header().await.unwrap();
     let url = BASE_URL.to_string() + "companyShare/currentIssue/";
     let body = json!({
         "filterFieldParams": [
@@ -89,8 +99,73 @@ async fn get_current_issue(headers: HashMap<&str, &str>) -> Result<Vec<Company>,
     let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
     match result {
         Ok(value) => {
-            let response: ApiResponse = value.json().await?;
+            let response: ApiResponseCurrentIssue = value.json().await.unwrap();
             Ok(response.object)
+        }
+        Err(error) => Err(error),
+    }
+}
+#[derive(Debug, Deserialize)]
+
+struct ApiResponseApplicationReport {
+    object: Vec<CompanyApplication>,
+}
+
+async fn get_application_report(
+    headers: HashMap<String, String>,
+) -> Result<Vec<CompanyApplication>, Error> {
+    let url = BASE_URL.to_string() + "applicantForm/active/search/";
+    let body = json!({
+        "filterFieldParams": [
+            {
+                "key": "companyShare.companyIssue.companyISIN.script",
+                "alias": "Scrip"
+            },
+            {
+                "key": "companyShare.companyIssue.companyISIN.company.name",
+                "alias": "Company Name"
+            }
+        ],
+        "page": 1,
+        "size": 200,
+        "searchRoleViewConstants": "VIEW_APPLICANT_FORM_COMPLETE",
+        "filterDateParams": [
+            {
+                "key": "appliedDate",
+                "condition": "",
+                "alias": "",
+                "value": ""
+            },
+            {
+                "key": "appliedDate",
+                "condition": "",
+                "alias": "",
+                "value": ""
+            }
+        ]
+    });
+    let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
+    match result {
+        Ok(value) => {
+            let response: ApiResponseApplicationReport = value.json().await?;
+            Ok(response.object)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+async fn get_company_result(
+    headers: HashMap<String, String>,
+    application: CompanyApplication,
+) -> Result<IPOResult, Error> {
+    let url = BASE_URL.to_string()
+        + "applicantForm/report/detail/"
+        + (application.id).to_string().as_str();
+    let result = make_request(&url, Method::GET, None, Some(headers)).await;
+    match result {
+        Ok(value) => {
+            let result: IPOResult = value.json().await?;
+            Ok(result)
         }
         Err(error) => Err(error),
     }
