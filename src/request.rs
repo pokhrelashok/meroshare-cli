@@ -2,17 +2,15 @@ use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
     Client, Error, Response,
 };
+use serde_json::Value;
 use std::{collections::HashMap, str::FromStr};
 
-pub async fn make_request<T>(
+pub async fn make_request(
     url: &str,
     method: reqwest::Method,
-    body: Option<T>,
+    body: Option<Value>,
     headers: Option<HashMap<&str, &str>>,
-) -> Result<Response, Error>
-where
-    T: serde::Serialize + std::fmt::Debug,
-{
+) -> Result<Response, Error> {
     let client = Client::new();
     let mut request_builder = client.request(method, url);
     let mut headers_map = HeaderMap::new();
@@ -58,6 +56,7 @@ where
     request_builder = request_builder.headers(headers_map);
 
     if let Some(body) = body {
+        print!("{:?}", body);
         let request = request_builder.json(&body).build()?;
         client.execute(request).await
     } else {
