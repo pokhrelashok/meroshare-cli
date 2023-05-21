@@ -1,5 +1,6 @@
 mod bank;
 mod company;
+mod file;
 mod handler;
 mod ipo_result;
 mod meroshare;

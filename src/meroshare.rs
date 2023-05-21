@@ -7,6 +7,8 @@ use std::collections::HashMap;
 use crate::bank::Bank;
 use crate::company::Company;
 use crate::company::CompanyApplication;
+use crate::file::get_user_stored_token;
+use crate::file::store_user_token;
 use crate::ipo_result::IPOResult;
 use crate::request::make_request;
 use crate::user::get_users;
@@ -15,33 +17,38 @@ use crate::user::User;
 const BASE_URL: &str = "https://backend.cdsc.com.np/api/meroShare/";
 
 async fn get_auth_header(user: Option<User>) -> Result<HashMap<String, String>, Error> {
-    let url = BASE_URL.to_string() + "auth/";
     let user_data: User = user.unwrap_or_else(|| get_users().get(0).unwrap().clone());
-    let body = json!({
-        "clientId":user_data.dp,
-        "username":user_data.username,
-        "password":user_data.password,
-    });
-    println!("--------------------------------------------");
-    println!("{:?}", body);
-    let result = make_request(&url, Method::POST, Some(body), None).await;
-    println!("{:?}", result);
-    println!("--------------------------------------------");
-    match result {
-        Ok(value) => {
-            let token = value
-                .headers()
-                .get("authorization")
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_owned();
-            let mut headers = HashMap::new();
-            headers.insert(String::from("Authorization"), token.as_str().to_string());
-            Ok(headers)
+    let mut token: String = String::new();
+    match get_user_stored_token(&user_data.username) {
+        Some(t) => {
+            token = t;
         }
-        Err(error) => Err(error),
+        None => {
+            let body = json!({
+                "clientId":user_data.dp,
+                "username":user_data.username,
+                "password":user_data.password,
+            });
+            let url = BASE_URL.to_string() + "auth/";
+            let result = make_request(&url, Method::POST, Some(body), None).await;
+            match result {
+                Ok(value) => {
+                    token = value
+                        .headers()
+                        .get("authorization")
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_owned();
+                    store_user_token(&user_data, &token);
+                }
+                Err(error) => {}
+            }
+        }
     }
+    let mut headers = HashMap::new();
+    headers.insert(String::from("Authorization"), token.as_str().to_string());
+    Ok(headers)
 }
 
 #[allow(dead_code)]
@@ -148,9 +155,7 @@ pub async fn get_company_result(user: User, company_index: usize) -> Result<IPOR
     let url = BASE_URL.to_string()
         + "applicantForm/report/detail/"
         + (application.id).to_string().as_str();
-    print!("{:?}", url);
     let result = make_request(&url, Method::GET, None, Some(headers)).await;
-    print!("{:?}", result);
     match result {
         Ok(value) => {
             let result: IPOResult = value.json().await?;
