@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Company {
     #[serde(rename = "companyName")]
     pub company_name: String,
@@ -27,19 +27,19 @@ pub struct Company {
 
 pub struct CompanyApplication {
     #[serde(rename = "applicantFormId")]
-    pub id: i64,
+    pub id: u64,
     #[serde(rename = "companyName")]
-    company_name: String,
+    pub company_name: String,
     #[serde(rename = "companyShareId")]
-    company_share_id: i32,
+    pub company_share_id: i32,
     #[serde(rename = "scrip")]
-    script: String,
+    pub script: String,
     #[serde(rename = "shareGroupName")]
-    share_group_name: String,
+    pub share_group_name: String,
     #[serde(rename = "shareTypeName")]
-    share_type_name: String,
+    pub share_type_name: String,
     #[serde(rename = "statusName")]
-    status_name: String,
+    pub status_name: String,
     #[serde(rename = "subGroup")]
-    sub_group: String,
+    pub sub_group: String,
 }

@@ -5,6 +5,8 @@ use reqwest::{
 use serde_json::Value;
 use std::{collections::HashMap, str::FromStr};
 
+#[allow(dead_code)]
+
 pub async fn make_request(
     url: &str,
     method: reqwest::Method,
