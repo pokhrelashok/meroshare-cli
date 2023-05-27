@@ -1,14 +1,14 @@
 extern crate prettytable;
 
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 
 use crate::company::CompanyApplication;
 use crate::file::{create_file, delete_file};
 use crate::ipo::{IPOAppliedResult, IPOResult};
+use crate::meroshare::get_current_issue;
 use crate::meroshare::{
     apply_share, get_application_report, get_company_prospectus, get_company_result,
 };
-use crate::meroshare::{get_banks, get_current_issue};
 use indicatif::ProgressBar;
 use prettytable::{color, row, Cell, Row};
 use prettytable::{Attr, Table};
@@ -134,7 +134,7 @@ async fn fill_share(id: i32, index: usize) {
     let users = get_users();
     let bar = ProgressBar::new(users.len() as u64);
     for user in users.iter() {
-        results.push(apply_share(user.clone(), index).await.unwrap());
+        results.push(apply_share(user, index).await.unwrap());
         bar.inc(1);
     }
     bar.finish_and_clear();
@@ -173,7 +173,7 @@ async fn check_result(company: &CompanyApplication, index: usize) {
     let bar = ProgressBar::new(users.len() as u64);
     let mut results: Vec<IPOResult> = vec![];
     for user in users.iter() {
-        results.push(get_company_result(user.clone(), index).await.unwrap());
+        results.push(get_company_result(user, index).await.unwrap());
         bar.inc(1);
     }
     bar.finish_and_clear();

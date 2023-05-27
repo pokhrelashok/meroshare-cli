@@ -20,8 +20,9 @@ use crate::user::UserDetails;
 
 const BASE_URL: &str = "https://backend.cdsc.com.np/api/meroShare/";
 
-async fn get_auth_header(user: Option<User>) -> Result<HashMap<String, String>, Error> {
-    let user_data: User = user.unwrap_or_else(|| get_users().get(0).unwrap().clone());
+async fn get_auth_header(user: Option<&User>) -> Result<HashMap<String, String>, Error> {
+    let user_data =
+        user.unwrap_or_else(|| Box::leak(Box::new(get_users().get(0).unwrap().to_owned())));
     let mut token: String = String::new();
     match get_user_stored_token(&user_data.username) {
         Some(t) => {
@@ -57,7 +58,7 @@ async fn get_auth_header(user: Option<User>) -> Result<HashMap<String, String>, 
 
 #[allow(dead_code)]
 
-pub async fn get_banks(user: User) -> Result<Vec<Bank>, Error> {
+pub async fn get_banks(user: &User) -> Result<Vec<Bank>, Error> {
     let headers = get_auth_header(Some(user)).await.unwrap();
     let url = BASE_URL.to_string() + "bank/";
     let result = make_request(&url, Method::GET, None, Some(headers)).await;
@@ -70,7 +71,7 @@ pub async fn get_banks(user: User) -> Result<Vec<Bank>, Error> {
     }
 }
 
-pub async fn get_bank_details(id: u32, user: User) -> Result<BankDetails, Error> {
+pub async fn get_bank_details(id: u32, user: &User) -> Result<BankDetails, Error> {
     let headers = get_auth_header(Some(user)).await.unwrap();
     let url = BASE_URL.to_string() + "bank/" + id.to_string().as_str();
     let result = make_request(&url, Method::GET, None, Some(headers)).await;
@@ -82,7 +83,7 @@ pub async fn get_bank_details(id: u32, user: User) -> Result<BankDetails, Error>
         Err(error) => Err(error),
     }
 }
-pub async fn get_user_details(user: User) -> Result<UserDetails, Error> {
+pub async fn get_user_details(user: &User) -> Result<UserDetails, Error> {
     let headers = get_auth_header(Some(user)).await.unwrap();
     let url = BASE_URL.to_string() + "ownDetail/";
     let result = make_request(&url, Method::GET, None, Some(headers)).await;
@@ -102,7 +103,7 @@ struct ApiResponseCurrentIssue {
 
 #[allow(dead_code)]
 
-pub async fn get_current_issue(user: Option<User>) -> Result<Vec<Company>, Error> {
+pub async fn get_current_issue(user: Option<&User>) -> Result<Vec<Company>, Error> {
     let headers = get_auth_header(user).await.unwrap();
     let url = BASE_URL.to_string() + "companyShare/currentIssue/";
     let body = json!({
@@ -136,7 +137,7 @@ struct ApiResponseApplicationReport {
 
 #[allow(dead_code)]
 
-pub async fn get_application_report(user: Option<User>) -> Result<Vec<CompanyApplication>, Error> {
+pub async fn get_application_report(user: Option<&User>) -> Result<Vec<CompanyApplication>, Error> {
     let headers = get_auth_header(user).await.unwrap();
     let url = BASE_URL.to_string() + "applicantForm/active/search/";
     let body = json!({
@@ -178,9 +179,9 @@ pub async fn get_application_report(user: Option<User>) -> Result<Vec<CompanyApp
     }
 }
 
-pub async fn get_company_result(user: User, company_index: usize) -> Result<IPOResult, Error> {
-    let headers = get_auth_header(Some(user.clone())).await.unwrap();
-    let shares = get_application_report(Some(user.clone())).await.unwrap();
+pub async fn get_company_result(user: &User, company_index: usize) -> Result<IPOResult, Error> {
+    let headers = get_auth_header(Some(user)).await.unwrap();
+    let shares = get_application_report(Some(user)).await.unwrap();
     let application = shares.get(company_index).unwrap();
     let url = BASE_URL.to_string()
         + "applicantForm/report/detail/"
@@ -208,13 +209,13 @@ pub async fn get_company_prospectus(id: i32) -> Result<Prospectus, Error> {
     }
 }
 
-pub async fn apply_share(user: User, company_index: usize) -> Result<IPOAppliedResult, Error> {
-    let headers = get_auth_header(Some(user.clone())).await.unwrap();
-    let shares = get_current_issue(Some(user.clone())).await.unwrap();
-    let banks = get_banks(user.clone()).await.unwrap();
+pub async fn apply_share(user: &User, company_index: usize) -> Result<IPOAppliedResult, Error> {
+    let headers = get_auth_header(Some(user)).await.unwrap();
+    let shares = get_current_issue(Some(user)).await.unwrap();
+    let banks = get_banks(user).await.unwrap();
     let bank = banks.get(user.bank_index - 1).unwrap();
-    let bank_details = get_bank_details(bank.id, user.clone()).await.unwrap();
-    let user_details = get_user_details(user.clone()).await.unwrap();
+    let bank_details = get_bank_details(bank.id, user).await.unwrap();
+    let user_details = get_user_details(user).await.unwrap();
     let opening = shares.get(company_index).unwrap();
     let url = BASE_URL.to_string() + "applicantForm/share/apply/";
     let body = json!({
