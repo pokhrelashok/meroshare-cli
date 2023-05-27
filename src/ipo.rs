@@ -7,3 +7,10 @@ pub struct IPOResult {
     #[serde(rename = "statusName")]
     pub status: String,
 }
+
+#[derive(Debug, Deserialize)]
+
+pub struct IPOAppliedResult {
+    pub message: String,
+    pub status: String,
+}

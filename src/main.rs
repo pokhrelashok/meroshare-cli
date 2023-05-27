@@ -2,7 +2,7 @@ mod bank;
 mod company;
 mod file;
 mod handler;
-mod ipo_result;
+mod ipo;
 mod meroshare;
 mod request;
 mod user;

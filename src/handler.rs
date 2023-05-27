@@ -1,12 +1,14 @@
 extern crate prettytable;
 
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 
 use crate::company::CompanyApplication;
 use crate::file::{create_file, delete_file};
-use crate::ipo_result::IPOResult;
-use crate::meroshare::get_current_issue;
-use crate::meroshare::{get_application_report, get_company_result};
+use crate::ipo::{IPOAppliedResult, IPOResult};
+use crate::meroshare::{
+    apply_share, get_application_report, get_company_prospectus, get_company_result,
+};
+use crate::meroshare::{get_banks, get_current_issue};
 use indicatif::ProgressBar;
 use prettytable::{color, row, Cell, Row};
 use prettytable::{Attr, Table};
@@ -55,7 +57,7 @@ fn print_menu() -> Result<Action, String> {
 }
 
 async fn list_open_shares() {
-    let shares = get_current_issue().await.unwrap();
+    let shares = get_current_issue(None).await.unwrap();
     let mut table = Table::new();
     table.add_row(Row::new(vec![
         Cell::new("S.N.").with_style(Attr::Bold),
@@ -80,7 +82,7 @@ async fn list_open_shares() {
         .expect("Failed to read line");
     let sn = input.trim().parse::<usize>().unwrap();
     if sn > 0 && sn <= shares.len() {
-        fill_share(shares.get(sn).unwrap().company_share_id).await;
+        fill_share(shares.get(sn - 1).unwrap().company_share_id, sn - 1).await;
     }
 }
 
@@ -114,7 +116,57 @@ async fn list_results() {
     }
 }
 
-async fn fill_share(id: i32) {}
+async fn fill_share(id: i32, index: usize) {
+    let prospectus = get_company_prospectus(id).await.unwrap();
+    prospectus.print();
+    print!("Are you sure you want to fill this share(y/n)? ");
+
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    let mut results: Vec<IPOAppliedResult> = vec![];
+    io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read line");
+    if input.chars().nth(0).unwrap() != 'y' {
+        ()
+    }
+
+    let users = get_users();
+    let bar = ProgressBar::new(users.len() as u64);
+    for user in users.iter() {
+        results.push(apply_share(user.clone(), index).await.unwrap());
+        bar.inc(1);
+    }
+    bar.finish_and_clear();
+
+    let mut table = Table::new();
+    let row = Row::new(vec![Cell::new(
+        format!("Applied {}", prospectus.company_name).as_str(),
+    )
+    .with_hspan(3)
+    .with_style(Attr::Bold)]);
+    table.add_row(row.clone());
+    table.add_row(Row::new(vec![
+        Cell::new("S.N.").with_style(Attr::Bold),
+        Cell::new("Name").with_style(Attr::Bold),
+        Cell::new("Status").with_style(Attr::Bold),
+    ]));
+    for (i, result) in results.iter().enumerate() {
+        table.add_row(Row::new(vec![
+            Cell::new((i + 1).to_string().as_str()),
+            Cell::new(users.get(i).unwrap().name.as_str()),
+            Cell::new(&result.status).with_style(Attr::ForegroundColor(
+                if result.status.contains("Not") {
+                    color::RED
+                } else {
+                    color::GREEN
+                },
+            )),
+        ]));
+    }
+    table.add_row(row);
+    table.printstd();
+}
 
 async fn check_result(company: &CompanyApplication, index: usize) {
     let users = get_users();

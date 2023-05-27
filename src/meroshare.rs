@@ -5,14 +5,18 @@ use serde_json::json;
 use std::collections::HashMap;
 
 use crate::bank::Bank;
+use crate::bank::BankDetails;
 use crate::company::Company;
 use crate::company::CompanyApplication;
+use crate::company::Prospectus;
 use crate::file::get_user_stored_token;
 use crate::file::store_user_token;
-use crate::ipo_result::IPOResult;
+use crate::ipo::IPOAppliedResult;
+use crate::ipo::IPOResult;
 use crate::request::make_request;
 use crate::user::get_users;
 use crate::user::User;
+use crate::user::UserDetails;
 
 const BASE_URL: &str = "https://backend.cdsc.com.np/api/meroShare/";
 
@@ -42,7 +46,7 @@ async fn get_auth_header(user: Option<User>) -> Result<HashMap<String, String>, 
                         .to_owned();
                     store_user_token(&user_data, &token);
                 }
-                Err(error) => {}
+                Err(_error) => {}
             }
         }
     }
@@ -53,13 +57,39 @@ async fn get_auth_header(user: Option<User>) -> Result<HashMap<String, String>, 
 
 #[allow(dead_code)]
 
-async fn get_banks(headers: HashMap<String, String>) -> Result<Vec<Bank>, Error> {
+pub async fn get_banks(user: User) -> Result<Vec<Bank>, Error> {
+    let headers = get_auth_header(Some(user)).await.unwrap();
     let url = BASE_URL.to_string() + "bank/";
     let result = make_request(&url, Method::GET, None, Some(headers)).await;
     match result {
         Ok(value) => {
             let banks: Vec<Bank> = value.json().await?;
             Ok(banks)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+pub async fn get_bank_details(id: u32, user: User) -> Result<BankDetails, Error> {
+    let headers = get_auth_header(Some(user)).await.unwrap();
+    let url = BASE_URL.to_string() + "bank/" + id.to_string().as_str();
+    let result = make_request(&url, Method::GET, None, Some(headers)).await;
+    match result {
+        Ok(value) => {
+            let banks: BankDetails = value.json().await?;
+            Ok(banks)
+        }
+        Err(error) => Err(error),
+    }
+}
+pub async fn get_user_details(user: User) -> Result<UserDetails, Error> {
+    let headers = get_auth_header(Some(user)).await.unwrap();
+    let url = BASE_URL.to_string() + "ownDetail/";
+    let result = make_request(&url, Method::GET, None, Some(headers)).await;
+    match result {
+        Ok(value) => {
+            let user: UserDetails = value.json().await?;
+            Ok(user)
         }
         Err(error) => Err(error),
     }
@@ -72,8 +102,8 @@ struct ApiResponseCurrentIssue {
 
 #[allow(dead_code)]
 
-pub async fn get_current_issue() -> Result<Vec<Company>, Error> {
-    let headers = get_auth_header(None).await.unwrap();
+pub async fn get_current_issue(user: Option<User>) -> Result<Vec<Company>, Error> {
+    let headers = get_auth_header(user).await.unwrap();
     let url = BASE_URL.to_string() + "companyShare/currentIssue/";
     let body = json!({
         "filterFieldParams": [
@@ -159,6 +189,50 @@ pub async fn get_company_result(user: User, company_index: usize) -> Result<IPOR
     match result {
         Ok(value) => {
             let result: IPOResult = value.json().await?;
+            Ok(result)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+pub async fn get_company_prospectus(id: i32) -> Result<Prospectus, Error> {
+    let headers = get_auth_header(None).await.unwrap();
+    let url = BASE_URL.to_string() + "active/" + (id).to_string().as_str();
+    let result = make_request(&url, Method::GET, None, Some(headers)).await;
+    match result {
+        Ok(value) => {
+            let result: Prospectus = value.json().await?;
+            Ok(result)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+pub async fn apply_share(user: User, company_index: usize) -> Result<IPOAppliedResult, Error> {
+    let headers = get_auth_header(Some(user.clone())).await.unwrap();
+    let shares = get_current_issue(Some(user.clone())).await.unwrap();
+    let banks = get_banks(user.clone()).await.unwrap();
+    let bank = banks.get(user.bank_index - 1).unwrap();
+    let bank_details = get_bank_details(bank.id, user.clone()).await.unwrap();
+    let user_details = get_user_details(user.clone()).await.unwrap();
+    let opening = shares.get(company_index).unwrap();
+    let url = BASE_URL.to_string() + "applicantForm/share/apply/";
+    let body = json!({
+        "accountBranchId":bank_details.account_branch_id,
+        "accountNumber":bank_details.account_number,
+        "appliedKitta":10,
+        "bankId":bank.id,
+        "boid":user_details.boid,
+        "companyShareId":opening.company_share_id,
+        "crnNumber":user.crn,
+        "customerId":bank_details.id,
+        "demat":user_details.demat,
+        "transactionPIN":user.pin,
+    });
+    let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
+    match result {
+        Ok(value) => {
+            let result: IPOAppliedResult = value.json().await?;
             Ok(result)
         }
         Err(error) => Err(error),

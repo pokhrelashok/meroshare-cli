@@ -5,6 +5,7 @@
     "password": "xxxxxxxx",
     "crn": "xxxxx",
     "pin": "xxxx",
-    "name": "xxxxxx"
+    "name": "xxxxxx",
+    "asbaBankIndex": 1
   }
 ]
