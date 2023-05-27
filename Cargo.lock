@@ -425,6 +425,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12b6ee2129af8d4fb011108c73d99a1b83a85977f23b82460c0ae2e25bb4b57f"
 
 [[package]]
+name = "ipo"
+version = "0.1.0"
+dependencies = [
+ "indicatif",
+ "prettytable-rs",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "is-terminal"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -754,18 +766,6 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "winreg",
-]
-
-[[package]]
-name = "rust-ipo"
-version = "0.1.0"
-dependencies = [
- "indicatif",
- "prettytable-rs",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
 ]
 
 [[package]]

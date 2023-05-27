@@ -15,7 +15,7 @@ pub fn create_file() {
         .append(true)
         .open("tokens.txt")
         .unwrap();
-    file.write_all(b"");
+    file.write_all(b"").unwrap();
 }
 
 pub fn delete_file() {
@@ -67,7 +67,7 @@ pub fn store_user_token(user: &User, token: &String) {
         Err(_) => {}
     }
     tokens.insert(user.username.clone(), token.clone());
-    save_map_to_file(&tokens);
+    save_map_to_file(&tokens).unwrap();
 }
 
 #[derive(Serialize, Deserialize)]

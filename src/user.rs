@@ -1,4 +1,4 @@
-use reqwest::Error;
+
 use serde::Deserialize;
 use std::fs::File;
 use std::io::Read;

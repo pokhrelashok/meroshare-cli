@@ -10,19 +10,19 @@ pub struct Company {
     #[serde(rename = "issueCloseDate")]
     pub issue_close_date: String,
     #[serde(rename = "issueOpenDate")]
-    issue_open_date: String,
+    pub issue_open_date: String,
     // #[serde(rename = "reservationTypeName")]
     // reservation_type_name: String,
     #[serde(rename = "scrip")]
-    script: String,
+    pub script: String,
     #[serde(rename = "shareGroupName")]
-    share_group_name: String,
+    pub share_group_name: String,
     #[serde(rename = "shareTypeName")]
     pub share_type_name: String,
     #[serde(rename = "statusName")]
-    status_name: String,
+    pub status_name: String,
     #[serde(rename = "subGroup")]
-    sub_group: String,
+    pub sub_group: String,
 }
 #[derive(Debug, Deserialize)]
 
