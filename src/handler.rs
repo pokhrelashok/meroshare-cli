@@ -194,7 +194,7 @@ async fn check_result(company: &CompanyApplication, index: usize) {
             Cell::new((i + 1).to_string().as_str()),
             Cell::new(users.get(i).unwrap().name.as_str()),
             Cell::new(&result.status).with_style(Attr::ForegroundColor(
-                if result.status.contains("Not") {
+                if result.status.contains("Not") || result.status.contains("Rejected") {
                     color::RED
                 } else {
                     color::GREEN
