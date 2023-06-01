@@ -5,20 +5,22 @@ use std::io::{self, Write};
 use crate::company::CompanyApplication;
 use crate::file::{create_file, delete_file};
 use crate::ipo::{IPOAppliedResult, IPOResult};
-use crate::meroshare::{get_current_issue, get_portfolio};
 use crate::meroshare::{
     apply_share, get_application_report, get_company_prospectus, get_company_result,
+    get_transactions,
 };
+use crate::meroshare::{get_current_issue, get_portfolio};
 use indicatif::ProgressBar;
 use prettytable::{color, row, Cell, Row};
 use prettytable::{Attr, Table};
 
-use crate::user::{get_users, print_users};
+use crate::user::{get_users, print_users, User};
 
 enum Action {
     ListOpenShares,
     ListResultShares,
     ViewPortfolio,
+    ViewTransactions,
 }
 
 pub async fn handle() {
@@ -36,6 +38,9 @@ pub async fn handle() {
             Action::ViewPortfolio => {
                 view_portfolio().await;
             }
+            Action::ViewTransactions => {
+                view_transactions().await;
+            }
         },
         Err(_) => {
             println!("Invalid Choice!");
@@ -47,6 +52,7 @@ fn print_menu() -> Result<Action, String> {
     println!("1. List Open Shares");
     println!("2. Check Share Result");
     println!("3. View Portfolio");
+    println!("4. View Transactions");
     print!("Choose an action? ");
     io::stdout().flush().unwrap();
 
@@ -58,6 +64,7 @@ fn print_menu() -> Result<Action, String> {
         "1" => Ok(Action::ListOpenShares),
         "2" => Ok(Action::ListResultShares),
         "3" => Ok(Action::ViewPortfolio),
+        "4" => Ok(Action::ViewTransactions),
         _ => Err("Invalid Selection".to_string()),
     }
 }
@@ -212,9 +219,31 @@ async fn check_result(company: &CompanyApplication, index: usize) {
     table.printstd();
 }
 
-
-pub async fn view_portfolio(){
+pub async fn view_portfolio() {
     let users = get_users();
+    match select_user(&users) {
+        Some(sn) => {
+            let user = users.get(sn - 1).unwrap();
+            let portfolio = get_portfolio(user).await.unwrap();
+            portfolio.print(user);
+        }
+        None => todo!(),
+    }
+}
+
+pub async fn view_transactions() {
+    let users = get_users();
+    match select_user(&users) {
+        Some(sn) => {
+            let user = users.get(sn - 1).unwrap();
+            let transactions = get_transactions(user).await.unwrap();
+            transactions.print(user);
+        }
+        None => todo!(),
+    }
+}
+
+fn select_user(users: &Vec<User>) -> Option<usize> {
     print_users(&users);
     print!("Choose User: ");
     io::stdout().flush().unwrap();
@@ -224,8 +253,8 @@ pub async fn view_portfolio(){
         .expect("Failed to read line");
     let sn = input.trim().parse::<usize>().unwrap();
     if sn > 0 && sn <= users.len() {
-        let user =users.get(sn - 1).unwrap();
-        let portfolio = get_portfolio(user).await.unwrap();
-        portfolio.print(user);
+        return Some(sn);
     }
+    println!("Invalid choise!");
+    return None;
 }

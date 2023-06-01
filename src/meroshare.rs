@@ -15,11 +15,12 @@ use crate::ipo::IPOAppliedResult;
 use crate::ipo::IPOResult;
 use crate::portfolio::Portfolio;
 use crate::request::make_request;
+use crate::transaction::TransactionView;
 use crate::user::get_users;
 use crate::user::User;
 use crate::user::UserDetails;
 
-const PORTFOLIO_URL: &str = "https://backend.cdsc.com.np/api/meroShareView/myPortfolio/";
+const PORTFOLIO_URL: &str = "https://backend.cdsc.com.np/api/meroShareView/";
 const MERO_SHARE_URL: &str = "https://backend.cdsc.com.np/api/meroShare/";
 
 async fn get_auth_header(user: Option<&User>) -> Result<HashMap<String, String>, Error> {
@@ -211,9 +212,10 @@ pub async fn get_company_prospectus(id: i32) -> Result<Prospectus, Error> {
     }
 }
 
-pub async fn get_portfolio(user:&User) -> Result<Portfolio, Error> {
+pub async fn get_portfolio(user: &User) -> Result<Portfolio, Error> {
     let headers = get_auth_header(Some(user)).await.unwrap();
     let user_details = get_user_details(&user).await.unwrap();
+    let url = PORTFOLIO_URL.to_string() + "myPortfolio";
     let body = json!({
         "clientCode":user.dp,
         "demat":[user_details.demat],
@@ -222,10 +224,32 @@ pub async fn get_portfolio(user:&User) -> Result<Portfolio, Error> {
         "sortAsc":true,
         "sortBy":"script",
     });
-    let result = make_request(&PORTFOLIO_URL, Method::POST, Some(body), Some(headers)).await;
+    let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
     match result {
         Ok(value) => {
             let result: Portfolio = value.json().await?;
+            Ok(result)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+pub async fn get_transactions(user: &User) -> Result<TransactionView, Error> {
+    let headers = get_auth_header(Some(user)).await.unwrap();
+    let user_details = get_user_details(&user).await.unwrap();
+    let url = PORTFOLIO_URL.to_string() + "myTransaction";
+    let body = json!({
+        "boid":user_details.demat,
+        "clientCode":user.dp,
+        "page":1,
+        "requestTypeScript":false,
+        "script":null,
+        "size":200,
+    });
+    let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
+    match result {
+        Ok(value) => {
+            let result: TransactionView = value.json().await?;
             Ok(result)
         }
         Err(error) => Err(error),
