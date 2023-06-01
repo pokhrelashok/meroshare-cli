@@ -15,7 +15,7 @@ impl TransactionView {
     pub fn print(&self, user: &User) {
         let mut table = Table::new();
         table.add_row(Row::new(vec![Cell::new(
-            format!("Portfolio of {}", user.name).as_str(),
+            format!("Transactions of {}", user.name).as_str(),
         )
         .with_style(Attr::Bold)
         .with_hspan(5)
