@@ -1,6 +1,8 @@
 use prettytable::{Table, Cell, Row, Attr};
 use serde::Deserialize;
 
+use crate::user::User;
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Portfolio {
     #[serde(rename = "totalItems")]
@@ -13,8 +15,11 @@ pub struct Portfolio {
     pub items:Vec<PortfolioItem>,
 }
 impl Portfolio {
-    pub fn print(&self) {
+    pub fn print(&self, user:&User) {
         let mut table = Table::new();
+        table.add_row(Row::new(vec![Cell::new(
+          format!("Portfolio of {}", user.name).as_str(),
+        ).with_style(Attr::Bold).with_hspan(5).style_spec("cb")]));
         table.add_row(Row::new(vec![
             Cell::new("Script").with_style(Attr::Bold),
             Cell::new("Current Balance").with_style(Attr::Bold),
@@ -33,8 +38,8 @@ impl Portfolio {
             ]));
         }
         table.add_row(Row::new(vec![
-          Cell::new(""),
-          Cell::new(""),
+          Cell::new(&self.items.len().to_string()).with_style(Attr::Bold),
+          Cell::new(&self.items.iter().map(|item| item.current_balance).sum::<f32>().to_string()),
           Cell::new(""),
           Cell::new(&self.total_value_of_prev_closing_price.to_string()).with_style(Attr::Bold),
           Cell::new(&self.total_value_of_last_trans_price.to_string()).with_style(Attr::Bold),

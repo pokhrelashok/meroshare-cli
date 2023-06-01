@@ -224,7 +224,8 @@ pub async fn view_portfolio(){
         .expect("Failed to read line");
     let sn = input.trim().parse::<usize>().unwrap();
     if sn > 0 && sn <= users.len() {
-        let portfolio = get_portfolio(users.get(sn - 1).unwrap()).await.unwrap();
-        portfolio.print();
+        let user =users.get(sn - 1).unwrap();
+        let portfolio = get_portfolio(user).await.unwrap();
+        portfolio.print(user);
     }
 }
