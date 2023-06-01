@@ -1,12 +1,14 @@
 
+use prettytable::{Table, Row, Cell, Attr};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::Read;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct User {
-    #[serde(rename = "dpId")]
     pub dp: String,
+    #[serde(rename = "dpId")]
+    pub dp_id: String,
     pub username: String,
     pub password: String,
     pub crn: String,
@@ -69,4 +71,19 @@ pub struct UserDetails {
     #[serde(rename = "renewedDateStr")]
     pub renewed_date_str: String,
     pub username: String,
+}
+
+pub fn print_users(users:&Vec<User>){
+    let mut table = Table::new();
+    table.add_row(Row::new(vec![
+        Cell::new("S.N.").with_style(Attr::Bold),
+        Cell::new("Name").with_style(Attr::Bold),
+    ]));
+    for (i, _) in users.iter().enumerate() {
+        table.add_row(Row::new(vec![
+            Cell::new((i + 1).to_string().as_str()),
+            Cell::new(users.get(i).unwrap().name.as_str()),
+        ]));
+    }
+    table.printstd();
 }

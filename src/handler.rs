@@ -5,7 +5,7 @@ use std::io::{self, Write};
 use crate::company::CompanyApplication;
 use crate::file::{create_file, delete_file};
 use crate::ipo::{IPOAppliedResult, IPOResult};
-use crate::meroshare::get_current_issue;
+use crate::meroshare::{get_current_issue, get_portfolio};
 use crate::meroshare::{
     apply_share, get_application_report, get_company_prospectus, get_company_result,
 };
@@ -13,11 +13,12 @@ use indicatif::ProgressBar;
 use prettytable::{color, row, Cell, Row};
 use prettytable::{Attr, Table};
 
-use crate::user::get_users;
+use crate::user::{get_users, print_users};
 
 enum Action {
     ListOpenShares,
     ListResultShares,
+    ViewPortfolio,
 }
 
 pub async fn handle() {
@@ -32,6 +33,9 @@ pub async fn handle() {
             Action::ListResultShares => {
                 list_results().await;
             }
+            Action::ViewPortfolio => {
+                view_portfolio().await;
+            }
         },
         Err(_) => {
             println!("Invalid Choice!");
@@ -42,6 +46,7 @@ pub async fn handle() {
 fn print_menu() -> Result<Action, String> {
     println!("1. List Open Shares");
     println!("2. Check Share Result");
+    println!("3. View Portfolio");
     print!("Choose an action? ");
     io::stdout().flush().unwrap();
 
@@ -52,6 +57,7 @@ fn print_menu() -> Result<Action, String> {
     match input.trim() {
         "1" => Ok(Action::ListOpenShares),
         "2" => Ok(Action::ListResultShares),
+        "3" => Ok(Action::ViewPortfolio),
         _ => Err("Invalid Selection".to_string()),
     }
 }
@@ -204,4 +210,21 @@ async fn check_result(company: &CompanyApplication, index: usize) {
     }
     table.add_row(row);
     table.printstd();
+}
+
+
+pub async fn view_portfolio(){
+    let users = get_users();
+    print_users(&users);
+    print!("Choose User: ");
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read line");
+    let sn = input.trim().parse::<usize>().unwrap();
+    if sn > 0 && sn <= users.len() {
+        let portfolio = get_portfolio(users.get(sn - 1).unwrap()).await.unwrap();
+        portfolio.print();
+    }
 }
