@@ -1,0 +1,53 @@
+name: Build Release Application
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Rust
+        uses: actions/checkout@v2
+
+      - name: Build for Linux
+        uses: Shogan/rust-musl-action@v1.0.2
+        with:
+          target: x86_64-unknown-linux-musl
+          release: true
+
+      - name: Build for Windows
+        uses: Shogan/rust-musl-action@v1.0.2
+        with:
+          target: x86_64-pc-windows-gnu
+          release: true
+
+      - name: Build for macOS (ARM)
+        uses: Shogan/rust-musl-action@v1.0.2
+        with:
+          target: x86_64-apple-darwin
+          release: true
+
+      - name: Archive Linux Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: linux-build
+          path: |
+            target/x86_64-unknown-linux-musl/release/ipo
+
+      - name: Archive Windows Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: windows-build
+          path: |
+            target/x86_64-pc-windows-gnu/release/ipo.exe
+
+      - name: Archive macOS Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos-build
+          path: |
+            target/x86_64-apple-darwin/release/ipo
