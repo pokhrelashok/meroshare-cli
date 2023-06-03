@@ -13,3 +13,5 @@ prettytable-rs = "^0.10"
 tokio = { version = "1.28.1", features = ["full"] }
 indicatif = "0.17.3"
 thousands = "0.2.0"
+tempfile = "3.5.0"
+lazy_static = "1.4.0"

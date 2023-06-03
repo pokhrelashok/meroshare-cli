@@ -429,10 +429,12 @@ name = "ipo"
 version = "0.1.0"
 dependencies = [
  "indicatif",
+ "lazy_static",
  "prettytable-rs",
  "reqwest",
  "serde",
  "serde_json",
+ "tempfile",
  "thousands",
  "tokio",
 ]
