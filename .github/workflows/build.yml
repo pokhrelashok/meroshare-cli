@@ -1,50 +1,28 @@
-name: Build Release Application
+ on:
+    push:
+      branches:
+        - main
 
-on:
-  push:
-    branches:
-      - main
+  jobs:
+    build:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v2
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+        - name: Install Rust
+          run: rustup install stable
 
-    steps:
-      - name: Set up Rust
-        uses: actions/checkout@v2
+        - name: Build application
+          run: cargo build --release
 
-      - name: Build for Linux
-        uses: Shogan/rust-musl-action@v1.0.2
-        with:
-          args: cargo build --target x86_64-unknown-linux-musl --release
+    upload:
+      runs-on: ubuntu-latest
+      needs: build
+      steps:
+        - uses: actions/checkout@v2
 
-      - name: Build for Windows
-        uses: Shogan/rust-musl-action@v1.0.2
-        with:
-          args: cargo build --target x86_64-pc-windows-gnu --release
-
-      - name: Build for macOS (ARM)
-        uses: Shogan/rust-musl-action@v1.0.2
-        with:
-          args: cargo build --target x86_64-apple-darwin --release
-
-      - name: Archive Linux Artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: linux-build
-          path: |
-            target/release/x86_64-unknown-linux-musl/ipo
-
-      - name: Archive Windows Artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: windows-build
-          path: |
-            target/release/x86_64-pc-windows-gnu/ipo.exe
-
-      - name: Archive macOS Artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: macos-build
-          path: |
-            target/release/x86_64-apple-darwin/ipo
+        - name: Upload artifact
+          uses: actions/upload-artifact@v2
+          with:
+            name: my-artifact
+            path: target/release/ipo
