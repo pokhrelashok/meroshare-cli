@@ -1,7 +1,8 @@
 use prettytable::{Attr, Cell, Row, Table};
 use serde::Deserialize;
+use thousands::Separable;
 
-use crate::user::User;
+use crate::{user::User, utils::CURR_FORMAT};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Portfolio {
@@ -27,8 +28,8 @@ impl Portfolio {
             Cell::new("Script").with_style(Attr::Bold),
             Cell::new("Current Balance").with_style(Attr::Bold),
             Cell::new("LTP").with_style(Attr::Bold),
-            Cell::new("Value of Previous Closing Price").with_style(Attr::Bold),
-            Cell::new("Value of LTP").with_style(Attr::Bold),
+            Cell::new("Previous Value").with_style(Attr::Bold),
+            Cell::new("Latest Value").with_style(Attr::Bold),
         ]));
 
         for item in &self.items {
@@ -36,8 +37,18 @@ impl Portfolio {
                 Cell::new(&item.script),
                 Cell::new(&item.current_balance.to_string()),
                 Cell::new(&item.last_transaction_price),
-                Cell::new(&item.value_of_prev_closing_price.to_string()),
-                Cell::new(&item.value_of_last_trans_price.to_string()),
+                Cell::new(
+                    &item
+                        .value_of_prev_closing_price
+                        .separate_by_policy(CURR_FORMAT)
+                        .to_string(),
+                ),
+                Cell::new(
+                    &item
+                        .value_of_last_trans_price
+                        .separate_by_policy(CURR_FORMAT)
+                        .to_string(),
+                ),
             ]));
         }
         table.add_row(Row::new(vec![
@@ -51,8 +62,20 @@ impl Portfolio {
                     .to_string(),
             ),
             Cell::new(""),
-            Cell::new(&self.total_value_of_prev_closing_price.to_string()).with_style(Attr::Bold),
-            Cell::new(&self.total_value_of_last_trans_price.to_string()).with_style(Attr::Bold),
+            Cell::new(
+                &self
+                    .total_value_of_prev_closing_price
+                    .separate_by_policy(CURR_FORMAT)
+                    .to_string(),
+            )
+            .with_style(Attr::Bold),
+            Cell::new(
+                &self
+                    .total_value_of_last_trans_price
+                    .separate_by_policy(CURR_FORMAT)
+                    .to_string(),
+            )
+            .with_style(Attr::Bold),
         ]));
         table.printstd();
     }

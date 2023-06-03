@@ -1,5 +1,8 @@
 use prettytable::{Cell, Row, Table};
 use serde::Deserialize;
+use thousands::Separable;
+
+use crate::utils::CURR_FORMAT;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Company {
@@ -95,7 +98,12 @@ impl Prospectus {
         ]));
         table.add_row(Row::new(vec![
             Cell::new("Price Per Unit"),
-            Cell::new(&self.share_per_unit.to_string()),
+            Cell::new(
+                &self
+                    .share_per_unit
+                    .separate_by_policy(CURR_FORMAT)
+                    .to_string(),
+            ),
         ]));
         table.add_row(Row::new(vec![
             Cell::new("Min Unit"),

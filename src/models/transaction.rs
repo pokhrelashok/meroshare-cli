@@ -1,7 +1,8 @@
 use prettytable::{color, Attr, Cell, Row, Table};
 use serde::Deserialize;
+use thousands::Separable;
 
-use crate::user::User;
+use crate::{user::User, utils::CURR_FORMAT};
 
 #[derive(Debug, Deserialize)]
 pub struct TransactionView {
@@ -33,7 +34,12 @@ impl TransactionView {
             let t_type = &entry.transaction_type();
             table.add_row(Row::new(vec![
                 Cell::new(&entry.script),
-                Cell::new(&entry.bal_after_trans.to_string()),
+                Cell::new(
+                    &entry
+                        .bal_after_trans
+                        .separate_by_policy(CURR_FORMAT)
+                        .to_string(),
+                ),
                 Cell::new(&entry.history_desc),
                 Cell::new(&entry.transaction_qty.to_string()),
                 Cell::new(&t_type).with_style(Attr::ForegroundColor(if t_type == "Removed" {
