@@ -16,20 +16,17 @@ jobs:
       - name: Build for Linux
         uses: Shogan/rust-musl-action@v1.0.2
         with:
-          target: x86_64-unknown-linux-musl
-          release: true
+          args: cargo build --target x86_64-unknown-linux-musl --release
 
       - name: Build for Windows
         uses: Shogan/rust-musl-action@v1.0.2
         with:
-          target: x86_64-pc-windows-gnu
-          release: true
+          args: cargo build --target x86_64-pc-windows-gnu --release
 
       - name: Build for macOS (ARM)
         uses: Shogan/rust-musl-action@v1.0.2
         with:
-          target: x86_64-apple-darwin
-          release: true
+          args: cargo build --target x86_64-apple-darwin --release
 
       - name: Archive Linux Artifacts
         uses: actions/upload-artifact@v2
