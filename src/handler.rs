@@ -19,6 +19,7 @@ use prettytable::{Attr, Table};
 use thousands::Separable;
 
 use crate::user::{get_users, print_users, User};
+use async_recursion::async_recursion;
 
 enum Action {
     ListOpenShares,
@@ -28,9 +29,12 @@ enum Action {
     CalculateProfit,
 }
 
-pub async fn handle() {
-    delete_file();
-    create_file();
+#[async_recursion]
+pub async fn handle(is_first_call: bool) {
+    if is_first_call {
+        delete_file();
+        create_file();
+    }
     let action = print_menu();
     match action {
         Ok(action) => match action {
@@ -150,8 +154,13 @@ async fn fill_share(id: i32, index: usize) {
     io::stdin()
         .read_line(&mut input)
         .expect("Failed to read line");
-    if input.chars().nth(0).unwrap() != 'y' {
-        ()
+    let selection = input.chars().nth(0).unwrap();
+    if selection != 'y' && selection != 'n' {
+        print!("Invalid Selection");
+        return ();
+    } else if selection == 'n' {
+        handle(false).await;
+        return ();
     }
 
     let users = get_users();

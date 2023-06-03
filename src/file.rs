@@ -28,7 +28,7 @@ pub fn create_file() {
 pub fn delete_file() {
     let file_path = &*FILE_PATH;
     match fs::remove_file(file_path) {
-        Ok(()) => println!("File deleted successfully."),
+        Ok(()) => (),
         Err(err) => println!("Error deleting file: {}", err),
     }
 }
