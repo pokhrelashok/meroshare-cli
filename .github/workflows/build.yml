@@ -36,18 +36,18 @@ jobs:
         with:
           name: linux-build
           path: |
-            target/x86_64-unknown-linux-musl/release/ipo
+            target/release/x86_64-unknown-linux-musl/ipo
 
       - name: Archive Windows Artifacts
         uses: actions/upload-artifact@v2
         with:
           name: windows-build
           path: |
-            target/x86_64-pc-windows-gnu/release/ipo.exe
+            target/release/x86_64-pc-windows-gnu/ipo.exe
 
       - name: Archive macOS Artifacts
         uses: actions/upload-artifact@v2
         with:
           name: macos-build
           path: |
-            target/x86_64-apple-darwin/release/ipo
+            target/release/x86_64-apple-darwin/ipo
