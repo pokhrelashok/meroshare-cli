@@ -1,6 +1,7 @@
 extern crate prettytable;
 
 use std::io::{self, Write};
+use std::vec;
 
 use crate::company::CompanyApplication;
 use crate::file::{create_file, delete_file};
@@ -10,9 +11,12 @@ use crate::meroshare::{
     get_transactions,
 };
 use crate::meroshare::{get_current_issue, get_portfolio};
+use crate::portfolio::Portfolio;
+use crate::utils::CURR_FORMAT;
 use indicatif::ProgressBar;
 use prettytable::{color, row, Cell, Row};
 use prettytable::{Attr, Table};
+use thousands::Separable;
 
 use crate::user::{get_users, print_users, User};
 
@@ -21,6 +25,7 @@ enum Action {
     ListResultShares,
     ViewPortfolio,
     ViewTransactions,
+    CalculateProfit,
 }
 
 pub async fn handle() {
@@ -41,6 +46,9 @@ pub async fn handle() {
             Action::ViewTransactions => {
                 view_transactions().await;
             }
+            Action::CalculateProfit => {
+                calculate_gains().await;
+            }
         },
         Err(_) => {
             println!("Invalid Choice!");
@@ -53,6 +61,7 @@ fn print_menu() -> Result<Action, String> {
     println!("2. Check Share Result");
     println!("3. View Portfolio");
     println!("4. View Transactions");
+    println!("5. Calculate Profit/Loss");
     print!("Choose an action? ");
     io::stdout().flush().unwrap();
 
@@ -65,6 +74,7 @@ fn print_menu() -> Result<Action, String> {
         "2" => Ok(Action::ListResultShares),
         "3" => Ok(Action::ViewPortfolio),
         "4" => Ok(Action::ViewTransactions),
+        "5" => Ok(Action::CalculateProfit),
         _ => Err("Invalid Selection".to_string()),
     }
 }
@@ -257,4 +267,90 @@ fn select_user(users: &Vec<User>) -> Option<usize> {
     }
     println!("Invalid choise!");
     return None;
+}
+
+async fn calculate_gains() {
+    println!("1. Family");
+    print!("Choose a tag? ");
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read line");
+    if input.trim() != "1" {
+        return;
+    }
+    let search = "family".to_string();
+    let users = get_users();
+    let tag_users: Vec<&User> = users
+        .iter()
+        .filter(|user| user.tags.contains(&search))
+        .collect();
+
+    let mut portfolios: Vec<Portfolio> = vec![];
+    let bar = ProgressBar::new(tag_users.len() as u64);
+    for user in tag_users.iter() {
+        let portfolio = get_portfolio(user).await.unwrap();
+        portfolios.push(portfolio);
+        bar.inc(1);
+    }
+    bar.finish_and_clear();
+    let mut prev_total: f32 = 0.00;
+    let mut now_total: f32 = 0.00;
+    for portfolio in portfolios.iter() {
+        prev_total += portfolio.total_value_of_prev_closing_price;
+        now_total += portfolio.total_value_of_last_trans_price;
+    }
+
+    let mut table = Table::new();
+    let row = Row::new(vec![Cell::new("Portfolio Calculations")
+        .with_hspan(2)
+        .style_spec("cb")]);
+    table.add_row(row);
+    table.add_row(Row::new(vec![
+        Cell::new("Previous Closing Price"),
+        Cell::new(
+            prev_total
+                .separate_by_policy(CURR_FORMAT)
+                .to_string()
+                .as_str(),
+        ),
+    ]));
+    table.add_row(Row::new(vec![
+        Cell::new("Latest Closing Price"),
+        Cell::new(
+            now_total
+                .separate_by_policy(CURR_FORMAT)
+                .to_string()
+                .as_str(),
+        ),
+    ]));
+    let is_balanced = now_total == prev_total;
+    let color = match now_total > prev_total {
+        true => color::GREEN,
+        false => color::RED,
+    };
+    table.add_row(Row::new(vec![
+        Cell::new(if now_total > prev_total {
+            "Total Profit"
+        } else if now_total < prev_total {
+            "Total Loss"
+        } else {
+            "Balance"
+        })
+        .with_style(Attr::Bold)
+        .with_style(Attr::ForegroundColor(color::WHITE)),
+        Cell::new(
+            now_total
+                .separate_by_policy(CURR_FORMAT)
+                .to_string()
+                .as_str(),
+        )
+        .with_style(Attr::Bold)
+        .with_style(Attr::ForegroundColor(match is_balanced {
+            true => color::WHITE,
+            false => color,
+        })),
+    ]));
+    table.printstd();
 }

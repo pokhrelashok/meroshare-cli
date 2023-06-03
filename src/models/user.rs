@@ -1,5 +1,4 @@
-
-use prettytable::{Table, Row, Cell, Attr};
+use prettytable::{Attr, Cell, Row, Table};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::Read;
@@ -16,6 +15,7 @@ pub struct User {
     pub name: String,
     #[serde(rename = "asbaBankIndex")]
     pub bank_index: usize,
+    pub tags: Vec<String>,
 }
 
 pub fn get_users() -> Vec<User> {
@@ -73,7 +73,7 @@ pub struct UserDetails {
     pub username: String,
 }
 
-pub fn print_users(users:&Vec<User>){
+pub fn print_users(users: &Vec<User>) {
     let mut table = Table::new();
     table.add_row(Row::new(vec![
         Cell::new("S.N.").with_style(Attr::Bold),
