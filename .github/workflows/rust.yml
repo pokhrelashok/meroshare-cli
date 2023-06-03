@@ -1,36 +1,57 @@
-name: Build Release Application
+name: Rust
 
 on:
   push:
     branches:
       - main
+  pull_request:
 
 jobs:
-  build:
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-
     steps:
-      - name: Set up Rust
-        uses: ATiltedTree/setup-rust@v1.0.5
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+      - name: Setup | Rust
+        uses: ATiltedTree/setup-rust@v1
         with:
           rust-version: stable
-          targets: x86_64-unknown-linux-gnu,x86_64-pc-windows-msvc,aarch64-apple-darwin
-
-      - name: Check out code
+          components: clippy
+      - name: Build | Lint
+        run: cargo clippy
+  compile:
+    name: Compile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup | Checkout
         uses: actions/checkout@v2
-
-      - name: Build for Linux
-        run: cargo build --release --target x86_64-unknown-linux-gnu
-
-      - name: Build for Windows
-        run: cargo build --release --target x86_64-pc-windows-msvc
-
-      - name: Build for macOS (ARM)
-        run: cargo build --release --target aarch64-apple-darwin
-
-      - name: Archive artifacts
-        uses: actions/upload-artifact@v2
+      - name: Setup | Rust
+        uses: ATiltedTree/setup-rust@v1
         with:
-          name: release-builds
-          path: |
-            target/release/ipo
+          rust-version: stable
+      - name: Build | Compile
+        run: cargo check
+  test:
+    name: Test
+    matrix:
+      strategy:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macOS-latest
+        rust:
+          - stable
+          - beta
+          - nightly
+    runs-on: ${{ matrix.os }}
+    needs: [compile]
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+      - name: Setup | Rust
+        uses: ATiltedTree/setup-rust@v1
+        with:
+          rust-version: ${{ matrix.rust }}
+      - name: Build | Compile
+        run: cargo test
