@@ -1,5 +1,3 @@
-name: Build Release Application
-
 on:
   push:
     branches:
@@ -8,43 +6,23 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Set up Rust
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-      - name: Build for Linux
-        uses: Shogan/rust-musl-action@v1.0.2
-        with:
-          args: cargo build --target x86_64-unknown-linux-musl --release
+      - name: Install Rust
+        run: rustup install stable
 
-      - name: Build for Windows
-        uses: Shogan/rust-musl-action@v1.0.2
-        with:
-          args: cargo build --target x86_64-pc-windows-gnu --release
+      - name: Build application
+        run: cargo build --release
 
-      - name: Build for macOS (ARM)
-        uses: Shogan/rust-musl-action@v1.0.2
-        with:
-          args: cargo build --target x86_64-apple-darwin --release
+  upload:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v2
 
-      - name: Archive Linux Artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: linux-build
-          path: |
-            target/release/x86_64-unknown-linux-musl/ipo
-
-      - name: Archive Windows Artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: windows-build
-          path: |
-            target/release/x86_64-pc-windows-gnu/ipo.exe
-
-      - name: Archive macOS Artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: macos-build
-          path: |
-            target/release/x86_64-apple-darwin/ipo
+          name: my-artifact
+          path: target/release/my-application.wasm
