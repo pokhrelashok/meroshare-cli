@@ -6,8 +6,6 @@ use std::io::Read;
 #[derive(Debug, Deserialize, Clone)]
 pub struct User {
     pub dp: String,
-    #[serde(rename = "dpId")]
-    pub dp_id: String,
     pub username: String,
     pub password: String,
     pub crn: String,

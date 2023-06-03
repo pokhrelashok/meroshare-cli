@@ -1,16 +1,17 @@
+use lazy_static::lazy_static;
 use reqwest::Error;
 use reqwest::Method;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
+use tokio::sync::Mutex;
 
 use crate::bank::Bank;
 use crate::bank::BankDetails;
+use crate::capital::Capital;
 use crate::company::Company;
 use crate::company::CompanyApplication;
 use crate::company::Prospectus;
-use crate::file::get_user_stored_token;
-use crate::file::store_user_token;
 use crate::ipo::IPOAppliedResult;
 use crate::ipo::IPOResult;
 use crate::portfolio::Portfolio;
@@ -23,17 +24,33 @@ use crate::user::UserDetails;
 const PORTFOLIO_URL: &str = "https://backend.cdsc.com.np/api/meroShareView/";
 const MERO_SHARE_URL: &str = "https://backend.cdsc.com.np/api/meroShare/";
 
+lazy_static! {
+    static ref CAPITALS: Mutex<Vec<Capital>> = Mutex::new(vec![]);
+    static ref TOKENS: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
+}
+
 async fn get_auth_header(user: Option<&User>) -> Result<HashMap<String, String>, Error> {
     let user_data =
         user.unwrap_or_else(|| Box::leak(Box::new(get_users().get(0).unwrap().to_owned())));
-    let mut token: String = String::new();
-    match get_user_stored_token(&user_data.username) {
+    let mut token = String::new();
+    let mut token_guard = TOKENS.lock().await;
+    let mut capital_guard = CAPITALS.lock().await;
+    match token_guard.get(&user_data.username) {
         Some(t) => {
-            token = t;
+            token = t.clone();
         }
         None => {
+            if capital_guard.len() == 0 {
+                let mut capitals = get_capitals().await.unwrap();
+                capital_guard.append(&mut capitals);
+            }
+            let dp_id = capital_guard
+                .iter()
+                .find(|&r| r.code == user_data.dp)
+                .unwrap()
+                .id;
             let body = json!({
-                "clientId":user_data.dp_id,
+                "clientId":dp_id,
                 "username":user_data.username,
                 "password":user_data.password,
             });
@@ -48,7 +65,7 @@ async fn get_auth_header(user: Option<&User>) -> Result<HashMap<String, String>,
                         .to_str()
                         .unwrap()
                         .to_owned();
-                    store_user_token(&user_data, &token);
+                    token_guard.insert(user_data.username.clone(), token.clone());
                 }
                 Err(_error) => {}
             }
@@ -59,9 +76,21 @@ async fn get_auth_header(user: Option<&User>) -> Result<HashMap<String, String>,
     Ok(headers)
 }
 
+async fn get_capitals() -> Result<Vec<Capital>, Error> {
+    let url = MERO_SHARE_URL.to_string() + "capital/";
+    let result = make_request(&url, Method::GET, None, None).await;
+    match result {
+        Ok(value) => {
+            let banks: Vec<Capital> = value.json().await?;
+            Ok(banks)
+        }
+        Err(error) => Err(error),
+    }
+}
+
 #[allow(dead_code)]
 
-pub async fn get_banks(user: &User) -> Result<Vec<Bank>, Error> {
+pub async fn get_user_banks(user: &User) -> Result<Vec<Bank>, Error> {
     let headers = get_auth_header(Some(user)).await.unwrap();
     let url = MERO_SHARE_URL.to_string() + "bank/";
     let result = make_request(&url, Method::GET, None, Some(headers)).await;
@@ -259,7 +288,7 @@ pub async fn get_transactions(user: &User) -> Result<TransactionView, Error> {
 pub async fn apply_share(user: &User, company_index: usize) -> Result<IPOAppliedResult, Error> {
     let headers = get_auth_header(Some(user)).await.unwrap();
     let shares = get_current_issue(Some(user)).await.unwrap();
-    let banks = get_banks(user).await.unwrap();
+    let banks = get_user_banks(user).await.unwrap();
     let bank = banks.get(user.bank_index - 1).unwrap();
     let bank_details = get_bank_details(bank.id, user).await.unwrap();
     let user_details = get_user_details(user).await.unwrap();

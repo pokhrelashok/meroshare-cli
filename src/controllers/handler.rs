@@ -5,7 +5,6 @@ use std::vec;
 
 use crate::company::CompanyApplication;
 use crate::currency::CURR_FORMAT;
-use crate::file::{create_file, delete_file};
 use crate::ipo::{IPOAppliedResult, IPOResult};
 use crate::meroshare::{
     apply_share, get_application_report, get_company_prospectus, get_company_result,
@@ -30,11 +29,7 @@ enum Action {
 }
 
 #[async_recursion]
-pub async fn handle(is_first_call: bool) {
-    if is_first_call {
-        delete_file();
-        create_file();
-    }
+pub async fn handle() {
     let action = print_menu();
     match action {
         Ok(action) => match action {
@@ -159,7 +154,6 @@ async fn fill_share(id: i32, index: usize) {
         print!("Invalid Selection");
         return ();
     } else if selection == 'n' {
-        handle(false).await;
         return ();
     }
 
