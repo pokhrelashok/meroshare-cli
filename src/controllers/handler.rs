@@ -4,6 +4,7 @@ use std::io::{self, Write};
 use std::vec;
 
 use crate::company::CompanyApplication;
+use crate::currency::CURR_FORMAT;
 use crate::file::{create_file, delete_file};
 use crate::ipo::{IPOAppliedResult, IPOResult};
 use crate::meroshare::{
@@ -12,7 +13,6 @@ use crate::meroshare::{
 };
 use crate::meroshare::{get_current_issue, get_portfolio};
 use crate::portfolio::Portfolio;
-use crate::utils::CURR_FORMAT;
 use indicatif::ProgressBar;
 use prettytable::{color, row, Cell, Row};
 use prettytable::{Attr, Table};

@@ -2,7 +2,7 @@ use prettytable::{Cell, Row, Table};
 use serde::Deserialize;
 use thousands::Separable;
 
-use crate::utils::CURR_FORMAT;
+use crate::currency::CURR_FORMAT;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Company {

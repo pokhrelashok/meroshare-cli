@@ -2,7 +2,7 @@ use prettytable::{color, Attr, Cell, Row, Table};
 use serde::Deserialize;
 use thousands::Separable;
 
-use crate::{user::User, utils::CURR_FORMAT};
+use crate::{currency::CURR_FORMAT, user::User};
 
 #[derive(Debug, Deserialize)]
 pub struct TransactionView {
