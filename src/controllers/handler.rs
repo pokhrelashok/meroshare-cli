@@ -12,15 +12,17 @@ use crate::meroshare::{
 };
 use crate::meroshare::{get_current_issue, get_portfolio};
 use crate::portfolio::Portfolio;
+use crate::user::{print_users, User};
+use async_recursion::async_recursion;
 use indicatif::ProgressBar;
 use lazy_static::lazy_static;
 use prettytable::{color, row, Cell, Row};
 use prettytable::{Attr, Table};
+use std::fs::File;
+use std::io::Error;
+use std::io::Read;
 use thousands::Separable;
 use tokio::sync::{Mutex, MutexGuard};
-
-use crate::user::{get_users, print_users, User};
-use async_recursion::async_recursion;
 
 enum Action {
     ListOpenShares,
@@ -367,4 +369,13 @@ async fn calculate_gains<'a>(users: &MutexGuard<'a, Vec<User>>) {
         })),
     ]));
     table.printstd();
+}
+
+pub fn get_users(path: &str) -> Result<Vec<User>, Error> {
+    let mut file = File::open(path).expect("Invalid file path");
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)
+        .expect("Failed to read file");
+    let users: Vec<User> = serde_json::from_str(&contents).expect("Invalid JSON");
+    Ok(users)
 }
