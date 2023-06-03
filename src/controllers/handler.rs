@@ -13,9 +13,11 @@ use crate::meroshare::{
 use crate::meroshare::{get_current_issue, get_portfolio};
 use crate::portfolio::Portfolio;
 use indicatif::ProgressBar;
+use lazy_static::lazy_static;
 use prettytable::{color, row, Cell, Row};
 use prettytable::{Attr, Table};
 use thousands::Separable;
+use tokio::sync::{Mutex, MutexGuard};
 
 use crate::user::{get_users, print_users, User};
 use async_recursion::async_recursion;
@@ -28,25 +30,32 @@ enum Action {
     CalculateProfit,
 }
 
+lazy_static! {
+    pub static ref USERS: Mutex<Vec<User>> = Mutex::new(vec![]);
+}
+
 #[async_recursion]
-pub async fn handle() {
+pub async fn handle(path: &str) {
+    let mut users_guard = USERS.lock().await;
+    let mut users = get_users(path).unwrap();
+    users_guard.append(&mut users);
     let action = print_menu();
     match action {
         Ok(action) => match action {
             Action::ListOpenShares => {
-                list_open_shares().await;
+                list_open_shares(&users_guard).await;
             }
             Action::ListResultShares => {
-                list_results().await;
+                list_results(&users_guard).await;
             }
             Action::ViewPortfolio => {
-                view_portfolio().await;
+                view_portfolio(&users_guard).await;
             }
             Action::ViewTransactions => {
-                view_transactions().await;
+                view_transactions(&users_guard).await;
             }
             Action::CalculateProfit => {
-                calculate_gains().await;
+                calculate_gains(&users_guard).await;
             }
         },
         Err(_) => {
@@ -78,8 +87,9 @@ fn print_menu() -> Result<Action, String> {
     }
 }
 
-async fn list_open_shares() {
-    let shares = get_current_issue(None).await.unwrap();
+async fn list_open_shares<'a>(users: &MutexGuard<'a, Vec<User>>) {
+    let user = users.get(0).unwrap();
+    let shares = get_current_issue(user).await.unwrap();
     let mut table = Table::new();
     table.add_row(Row::new(vec![
         Cell::new("S.N.").with_style(Attr::Bold),
@@ -104,12 +114,13 @@ async fn list_open_shares() {
         .expect("Failed to read line");
     let sn = input.trim().parse::<usize>().unwrap();
     if sn > 0 && sn <= shares.len() {
-        fill_share(shares.get(sn - 1).unwrap().company_share_id, sn - 1).await;
+        fill_share(shares.get(sn - 1).unwrap().company_share_id, sn - 1, users).await;
     }
 }
 
-async fn list_results() {
-    let shares = get_application_report(None).await.unwrap();
+async fn list_results<'a>(users: &MutexGuard<'a, Vec<User>>) {
+    let user = users.get(0).unwrap();
+    let shares = get_application_report(user).await.unwrap();
     let mut table = Table::new();
     table.add_row(Row::new(vec![
         Cell::new("S.N.").with_style(Attr::Bold),
@@ -134,12 +145,13 @@ async fn list_results() {
         .expect("Failed to read line");
     let sn = input.trim().parse::<usize>().unwrap();
     if sn > 0 && sn <= shares.len() {
-        check_result(shares.get(sn - 1).unwrap(), sn - 1).await;
+        check_result(shares.get(sn - 1).unwrap(), sn - 1, users).await;
     }
 }
 
-async fn fill_share(id: i32, index: usize) {
-    let prospectus = get_company_prospectus(id).await.unwrap();
+async fn fill_share<'a>(id: i32, index: usize, users: &MutexGuard<'a, Vec<User>>) {
+    let user = users.get(0).unwrap();
+    let prospectus = get_company_prospectus(user, id).await.unwrap();
     prospectus.print();
     print!("Are you sure you want to fill this share(y/n)? ");
 
@@ -157,7 +169,6 @@ async fn fill_share(id: i32, index: usize) {
         return ();
     }
 
-    let users = get_users();
     let bar = ProgressBar::new(users.len() as u64);
     for user in users.iter() {
         results.push(apply_share(user, index).await.unwrap());
@@ -194,8 +205,11 @@ async fn fill_share(id: i32, index: usize) {
     table.printstd();
 }
 
-async fn check_result(company: &CompanyApplication, index: usize) {
-    let users = get_users();
+async fn check_result<'a>(
+    company: &CompanyApplication,
+    index: usize,
+    users: &MutexGuard<'a, Vec<User>>,
+) {
     let bar = ProgressBar::new(users.len() as u64);
     let mut results: Vec<IPOResult> = vec![];
     for user in users.iter() {
@@ -232,9 +246,8 @@ async fn check_result(company: &CompanyApplication, index: usize) {
     table.printstd();
 }
 
-pub async fn view_portfolio() {
-    let users = get_users();
-    match select_user(&users) {
+pub async fn view_portfolio<'a>(users: &MutexGuard<'a, Vec<User>>) {
+    match select_user(users) {
         Some(sn) => {
             let user = users.get(sn - 1).unwrap();
             let portfolio = get_portfolio(user).await.unwrap();
@@ -244,8 +257,7 @@ pub async fn view_portfolio() {
     }
 }
 
-pub async fn view_transactions() {
-    let users = get_users();
+pub async fn view_transactions<'a>(users: &MutexGuard<'a, Vec<User>>) {
     match select_user(&users) {
         Some(sn) => {
             let user = users.get(sn - 1).unwrap();
@@ -256,8 +268,8 @@ pub async fn view_transactions() {
     }
 }
 
-fn select_user(users: &Vec<User>) -> Option<usize> {
-    print_users(&users);
+fn select_user<'a>(users: &MutexGuard<'a, Vec<User>>) -> Option<usize> {
+    print_users(users);
     print!("Choose User: ");
     io::stdout().flush().unwrap();
     let mut input = String::new();
@@ -272,7 +284,7 @@ fn select_user(users: &Vec<User>) -> Option<usize> {
     return None;
 }
 
-async fn calculate_gains() {
+async fn calculate_gains<'a>(users: &MutexGuard<'a, Vec<User>>) {
     println!("1. Family");
     print!("Choose a tag? ");
     io::stdout().flush().unwrap();
@@ -284,7 +296,6 @@ async fn calculate_gains() {
         return;
     }
     let search = "family".to_string();
-    let users = get_users();
     let tag_users: Vec<&User> = users
         .iter()
         .filter(|user| user.tags.contains(&search))

@@ -17,7 +17,6 @@ use crate::ipo::IPOResult;
 use crate::portfolio::Portfolio;
 use crate::request::make_request;
 use crate::transaction::TransactionView;
-use crate::user::get_users;
 use crate::user::User;
 use crate::user::UserDetails;
 
@@ -29,13 +28,11 @@ lazy_static! {
     static ref TOKENS: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
 }
 
-async fn get_auth_header(user: Option<&User>) -> Result<HashMap<String, String>, Error> {
-    let user_data =
-        user.unwrap_or_else(|| Box::leak(Box::new(get_users().get(0).unwrap().to_owned())));
+async fn get_auth_header(user: &User) -> Result<HashMap<String, String>, Error> {
     let mut token = String::new();
     let mut token_guard = TOKENS.lock().await;
     let mut capital_guard = CAPITALS.lock().await;
-    match token_guard.get(&user_data.username) {
+    match token_guard.get(&user.username) {
         Some(t) => {
             token = t.clone();
         }
@@ -46,13 +43,13 @@ async fn get_auth_header(user: Option<&User>) -> Result<HashMap<String, String>,
             }
             let dp_id = capital_guard
                 .iter()
-                .find(|&r| r.code == user_data.dp)
+                .find(|&r| r.code == user.dp)
                 .unwrap()
                 .id;
             let body = json!({
                 "clientId":dp_id,
-                "username":user_data.username,
-                "password":user_data.password,
+                "username":user.username,
+                "password":user.password,
             });
             let url = MERO_SHARE_URL.to_string() + "auth/";
             let result = make_request(&url, Method::POST, Some(body), None).await;
@@ -65,7 +62,7 @@ async fn get_auth_header(user: Option<&User>) -> Result<HashMap<String, String>,
                         .to_str()
                         .unwrap()
                         .to_owned();
-                    token_guard.insert(user_data.username.clone(), token.clone());
+                    token_guard.insert(user.username.clone(), token.clone());
                 }
                 Err(_error) => {}
             }
@@ -91,7 +88,7 @@ async fn get_capitals() -> Result<Vec<Capital>, Error> {
 #[allow(dead_code)]
 
 pub async fn get_user_banks(user: &User) -> Result<Vec<Bank>, Error> {
-    let headers = get_auth_header(Some(user)).await.unwrap();
+    let headers = get_auth_header(user).await.unwrap();
     let url = MERO_SHARE_URL.to_string() + "bank/";
     let result = make_request(&url, Method::GET, None, Some(headers)).await;
     match result {
@@ -104,7 +101,7 @@ pub async fn get_user_banks(user: &User) -> Result<Vec<Bank>, Error> {
 }
 
 pub async fn get_bank_details(id: u32, user: &User) -> Result<BankDetails, Error> {
-    let headers = get_auth_header(Some(user)).await.unwrap();
+    let headers = get_auth_header(user).await.unwrap();
     let url = MERO_SHARE_URL.to_string() + "bank/" + id.to_string().as_str();
     let result = make_request(&url, Method::GET, None, Some(headers)).await;
     match result {
@@ -116,7 +113,7 @@ pub async fn get_bank_details(id: u32, user: &User) -> Result<BankDetails, Error
     }
 }
 pub async fn get_user_details(user: &User) -> Result<UserDetails, Error> {
-    let headers = get_auth_header(Some(user)).await.unwrap();
+    let headers = get_auth_header(user).await.unwrap();
     let url = MERO_SHARE_URL.to_string() + "ownDetail/";
     let result = make_request(&url, Method::GET, None, Some(headers)).await;
     match result {
@@ -135,7 +132,7 @@ struct ApiResponseCurrentIssue {
 
 #[allow(dead_code)]
 
-pub async fn get_current_issue(user: Option<&User>) -> Result<Vec<Company>, Error> {
+pub async fn get_current_issue(user: &User) -> Result<Vec<Company>, Error> {
     let headers = get_auth_header(user).await.unwrap();
     let url = MERO_SHARE_URL.to_string() + "companyShare/currentIssue/";
     let body = json!({
@@ -169,7 +166,7 @@ struct ApiResponseApplicationReport {
 
 #[allow(dead_code)]
 
-pub async fn get_application_report(user: Option<&User>) -> Result<Vec<CompanyApplication>, Error> {
+pub async fn get_application_report(user: &User) -> Result<Vec<CompanyApplication>, Error> {
     let headers = get_auth_header(user).await.unwrap();
     let url = MERO_SHARE_URL.to_string() + "applicantForm/active/search/";
     let body = json!({
@@ -212,8 +209,8 @@ pub async fn get_application_report(user: Option<&User>) -> Result<Vec<CompanyAp
 }
 
 pub async fn get_company_result(user: &User, company_index: usize) -> Result<IPOResult, Error> {
-    let headers = get_auth_header(Some(user)).await.unwrap();
-    let shares = get_application_report(Some(user)).await.unwrap();
+    let headers = get_auth_header(user).await.unwrap();
+    let shares = get_application_report(user).await.unwrap();
     let application = shares.get(company_index).unwrap();
     let url = MERO_SHARE_URL.to_string()
         + "applicantForm/report/detail/"
@@ -228,8 +225,8 @@ pub async fn get_company_result(user: &User, company_index: usize) -> Result<IPO
     }
 }
 
-pub async fn get_company_prospectus(id: i32) -> Result<Prospectus, Error> {
-    let headers = get_auth_header(None).await.unwrap();
+pub async fn get_company_prospectus(user: &User, id: i32) -> Result<Prospectus, Error> {
+    let headers = get_auth_header(user).await.unwrap();
     let url = MERO_SHARE_URL.to_string() + "active/" + (id).to_string().as_str();
     let result = make_request(&url, Method::GET, None, Some(headers)).await;
     match result {
@@ -242,7 +239,7 @@ pub async fn get_company_prospectus(id: i32) -> Result<Prospectus, Error> {
 }
 
 pub async fn get_portfolio(user: &User) -> Result<Portfolio, Error> {
-    let headers = get_auth_header(Some(user)).await.unwrap();
+    let headers = get_auth_header(user).await.unwrap();
     let user_details = get_user_details(&user).await.unwrap();
     let url = PORTFOLIO_URL.to_string() + "myPortfolio";
     let body = json!({
@@ -264,7 +261,7 @@ pub async fn get_portfolio(user: &User) -> Result<Portfolio, Error> {
 }
 
 pub async fn get_transactions(user: &User) -> Result<TransactionView, Error> {
-    let headers = get_auth_header(Some(user)).await.unwrap();
+    let headers = get_auth_header(user).await.unwrap();
     let user_details = get_user_details(&user).await.unwrap();
     let url = PORTFOLIO_URL.to_string() + "myTransaction";
     let body = json!({
@@ -286,8 +283,8 @@ pub async fn get_transactions(user: &User) -> Result<TransactionView, Error> {
 }
 
 pub async fn apply_share(user: &User, company_index: usize) -> Result<IPOAppliedResult, Error> {
-    let headers = get_auth_header(Some(user)).await.unwrap();
-    let shares = get_current_issue(Some(user)).await.unwrap();
+    let headers = get_auth_header(user).await.unwrap();
+    let shares = get_current_issue(user).await.unwrap();
     let banks = get_user_banks(user).await.unwrap();
     let bank = banks.get(user.bank_index - 1).unwrap();
     let bank_details = get_bank_details(bank.id, user).await.unwrap();

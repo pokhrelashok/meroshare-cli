@@ -20,9 +20,16 @@ mod request;
 mod transaction;
 #[path = "models/user.rs"]
 mod user;
+use std::env;
+
 use handler::handle;
 #[tokio::main]
 async fn main() {
-    // init().await;
-    handle().await;
+    let args: Vec<String> = env::args().collect();
+    if args.len() != 2 {
+        eprintln!("Usage: cargo run -- <directory_path>");
+        return;
+    }
+    let directory_path = &args[1];
+    handle(directory_path).await;
 }
