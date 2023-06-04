@@ -16,7 +16,7 @@ jobs:
 
       - name: Get Version from Cargo.toml
         id: get_version
-        run: echo "::set-output name=version::$(cat Cargo.toml | jq -r '.package.version')"
+        run: echo "::set-output name=version::$(grep -m1 '^version =' Cargo.toml | sed 's/version = "//; s/"$//')"
 
       - name: Create Release
         id: create_release
