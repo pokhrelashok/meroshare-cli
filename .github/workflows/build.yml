@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,6 +25,21 @@ jobs:
       - name: Install macOS Target
         run: rustup target add x86_64-apple-darwin
 
+      - name: Install cross tool
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy, cross
+
+      - name: Install macOS toolchain
+        run: cross toolchain install --target x86_64-apple-darwin14
+
+      - name: Set macOS Target
+        run: cross target add x86_64-apple-darwin14
+
+      - name: Verify macOS Target
+        run: cross rustc --print target-list | grep x86_64-apple-darwin14
+
       - name: Install Windows Linker
         run: sudo apt-get update && sudo apt-get install -y mingw-w64
 
@@ -38,7 +54,7 @@ jobs:
           path: target/x86_64-unknown-linux-gnu/release/ipo
 
       - name: Build for Windows
-        run: cargo build --release --target=x86_64-pc-windows-gnu
+        run: cross build --release --target=x86_64-pc-windows-gnu
         id: windows
 
       - name: Archive Windows Artifacts
@@ -46,6 +62,16 @@ jobs:
         with:
           name: ipo-windows
           path: target/x86_64-pc-windows-gnu/release/ipo.exe
+
+      - name: Build for macOS
+        run: cross build --release --target=x86_64-apple-darwin14
+        id: macos
+
+      - name: Archive macOS Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ipo-macos
+          path: target/x86_64-apple-darwin14/release/ipo
 
       - name: Get Version from Cargo.toml
         id: get_version
@@ -82,4 +108,14 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: target/x86_64-pc-windows-gnu/release/ipo.exe
           asset_name: ipo-windows.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: target/x86_64-apple-darwin14/release/ipo
+          asset_name: ipo-macos
           asset_content_type: application/octet-stream
