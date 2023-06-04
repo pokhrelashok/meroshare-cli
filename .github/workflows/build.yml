@@ -78,13 +78,3 @@ jobs:
           asset_path: target/x86_64-pc-windows-gnu/release/ipo.exe
           asset_name: ipo-windows.exe
           asset_content_type: application/octet-stream
-
-      - name: Upload macOS Artifacts
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: target/release/ipo
-          asset_name: ipo-macos
-          asset_content_type: application/octet-stream
