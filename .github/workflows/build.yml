@@ -1,8 +1,9 @@
 name: App Release
 
 on:
-  release:
-    types: [published]
+  push:
+    branches:
+      - main
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -46,13 +47,17 @@ jobs:
           name: ipo-windows
           path: target/x86_64-pc-windows-gnu/release/ipo.exe
 
+      - name: Get Version from Cargo.toml
+        id: get_version
+        run: echo "::set-output name=version::$(cargo metadata --format-version=1 | jq -r '.packages[0].version')"
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.event.release.tag_name }}
+          tag_name: ${{ steps.get_version.outputs.version }}
           release_name: Release ${{ github.ref }}
           body: |
             Release of ipo
