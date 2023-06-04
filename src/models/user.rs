@@ -1,6 +1,11 @@
 use prettytable::{Attr, Cell, Row, Table};
 use serde::Deserialize;
-
+fn default_bank_index() -> usize {
+    1
+}
+fn default_tag() -> Vec<String> {
+    vec![]
+}
 #[derive(Debug, Deserialize, Clone)]
 pub struct User {
     pub dp: String,
@@ -9,8 +14,9 @@ pub struct User {
     pub crn: String,
     pub pin: String,
     pub name: String,
-    #[serde(rename = "asbaBankIndex")]
+    #[serde(rename = "asbaBankIndex", default = "default_bank_index")]
     pub bank_index: usize,
+    #[serde(default = "default_tag")]
     pub tags: Vec<String>,
 }
 

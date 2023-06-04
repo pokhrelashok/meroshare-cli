@@ -1,0 +1,22 @@
+[
+  {
+    "dp": "xxx",
+    "username": "xxxxx",
+    "password": "xxxxxxxx",
+    "crn": "xxxxx",
+    "pin": "xxxx",
+    "name": "xxxxxx",
+    "asbaBankIndex": 1,
+    "tags":[]
+  },
+  {
+    "dp": "xxx",
+    "username": "xxxxx",
+    "password": "xxxxxxxx",
+    "crn": "xxxxx",
+    "pin": "xxxx",
+    "name": "xxxxxx",
+    "asbaBankIndex": 1,
+    "tags":[]
+  },
+]

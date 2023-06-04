@@ -1,7 +1,8 @@
 extern crate prettytable;
 
-use std::io::{self, Write};
-use std::vec;
+use std::io::{self, Error, Write};
+use std::path::Path;
+use std::{env, vec};
 
 use crate::company::CompanyApplication;
 use crate::currency::CURR_FORMAT;
@@ -19,7 +20,6 @@ use lazy_static::lazy_static;
 use prettytable::{color, row, Cell, Row};
 use prettytable::{Attr, Table};
 use std::fs::File;
-use std::io::Error;
 use std::io::Read;
 use thousands::Separable;
 use tokio::sync::{Mutex, MutexGuard};
@@ -37,32 +37,72 @@ lazy_static! {
 }
 
 #[async_recursion]
-pub async fn handle(path: &str) {
-    let mut users_guard = USERS.lock().await;
-    let mut users = get_users(path).unwrap();
-    users_guard.append(&mut users);
-    let action = print_menu();
-    match action {
-        Ok(action) => match action {
-            Action::ListOpenShares => {
-                list_open_shares(&users_guard).await;
+pub async fn handle() {
+    loop {
+        let args: Vec<String> = env::args().collect();
+        #[allow(unused_assignments)]
+        let mut directory_path = String::new();
+        if let Some(dir_path) = args.get(1) {
+            directory_path = dir_path.to_string();
+        } else {
+            if users_json_exists("users.json") {
+                directory_path = String::from("users.json");
+            } else {
+                print!("Path to the users JSON file? ");
+                io::stdout().flush().unwrap();
+                let mut input = String::new();
+                io::stdin()
+                    .read_line(&mut input)
+                    .expect("Failed to read line");
+                if input.trim().is_empty() {
+                    println!("Invalid file path!");
+                    handle().await;
+                } else {
+                    directory_path = input.trim().to_owned();
+                }
             }
-            Action::ListResultShares => {
-                list_results(&users_guard).await;
-            }
-            Action::ViewPortfolio => {
-                view_portfolio(&users_guard).await;
-            }
-            Action::ViewTransactions => {
-                view_transactions(&users_guard).await;
-            }
-            Action::CalculateProfit => {
-                calculate_gains(&users_guard).await;
-            }
-        },
-        Err(_) => {
-            println!("Invalid Choice!");
         }
+
+        let mut users_guard = USERS.lock().await;
+        let mut users = get_users(directory_path.as_str()).unwrap();
+        users_guard.append(&mut users);
+        let action = print_menu();
+        match action {
+            Ok(action) => match action {
+                Action::ListOpenShares => {
+                    list_open_shares(&users_guard).await;
+                }
+                Action::ListResultShares => {
+                    list_results(&users_guard).await;
+                }
+                Action::ViewPortfolio => {
+                    view_portfolio(&users_guard).await;
+                }
+                Action::ViewTransactions => {
+                    view_transactions(&users_guard).await;
+                }
+                Action::CalculateProfit => {
+                    calculate_gains(&users_guard).await;
+                }
+            },
+            Err(_) => {
+                println!("Invalid Choice!");
+            }
+        }
+        print!("Press (m) to show menu: ");
+        io::stdout().flush().unwrap();
+        let char = read_single_character().unwrap();
+        if char != 'm' {
+            break;
+        }
+    }
+}
+
+fn users_json_exists(file_path: &str) -> bool {
+    if Path::new(file_path).exists() {
+        true
+    } else {
+        false
     }
 }
 
@@ -75,16 +115,13 @@ fn print_menu() -> Result<Action, String> {
     print!("Choose an action? ");
     io::stdout().flush().unwrap();
 
-    let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read line");
-    match input.trim() {
-        "1" => Ok(Action::ListOpenShares),
-        "2" => Ok(Action::ListResultShares),
-        "3" => Ok(Action::ViewPortfolio),
-        "4" => Ok(Action::ViewTransactions),
-        "5" => Ok(Action::CalculateProfit),
+    let input = read_single_character().unwrap();
+    match input {
+        '1' => Ok(Action::ListOpenShares),
+        '2' => Ok(Action::ListResultShares),
+        '3' => Ok(Action::ViewPortfolio),
+        '4' => Ok(Action::ViewTransactions),
+        '5' => Ok(Action::CalculateProfit),
         _ => Err("Invalid Selection".to_string()),
     }
 }
@@ -140,12 +177,8 @@ async fn list_results<'a>(users: &MutexGuard<'a, Vec<User>>) {
     }
     table.printstd();
     print!("Which share's result do you want to check? ");
-    io::stdout().flush().unwrap();
-    let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read line");
-    let sn = input.trim().parse::<usize>().unwrap();
+    let input = read_single_character().unwrap();
+    let sn = input.to_digit(10).unwrap() as usize;
     if sn > 0 && sn <= shares.len() {
         check_result(shares.get(sn - 1).unwrap(), sn - 1, users).await;
     }
@@ -158,16 +191,12 @@ async fn fill_share<'a>(id: i32, index: usize, users: &MutexGuard<'a, Vec<User>>
     print!("Are you sure you want to fill this share(y/n)? ");
 
     io::stdout().flush().unwrap();
-    let mut input = String::new();
+    let input = read_single_character().unwrap();
     let mut results: Vec<IPOAppliedResult> = vec![];
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read line");
-    let selection = input.chars().nth(0).unwrap();
-    if selection != 'y' && selection != 'n' {
+    if input != 'y' && input != 'n' {
         print!("Invalid Selection");
         return ();
-    } else if selection == 'n' {
+    } else if input == 'n' {
         return ();
     }
 
@@ -273,12 +302,8 @@ pub async fn view_transactions<'a>(users: &MutexGuard<'a, Vec<User>>) {
 fn select_user<'a>(users: &MutexGuard<'a, Vec<User>>) -> Option<usize> {
     print_users(users);
     print!("Choose User: ");
-    io::stdout().flush().unwrap();
-    let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read line");
-    let sn = input.trim().parse::<usize>().unwrap();
+    let input = read_single_character().unwrap();
+    let sn = input.to_digit(10).unwrap() as usize;
     if sn > 0 && sn <= users.len() {
         return Some(sn);
     }
@@ -290,11 +315,8 @@ async fn calculate_gains<'a>(users: &MutexGuard<'a, Vec<User>>) {
     println!("1. Family");
     print!("Choose a tag? ");
     io::stdout().flush().unwrap();
-    let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read line");
-    if input.trim() != "1" {
+    let input = read_single_character().unwrap();
+    if input != '1' {
         return;
     }
     let search = "family".to_string();
@@ -348,16 +370,17 @@ async fn calculate_gains<'a>(users: &MutexGuard<'a, Vec<User>>) {
     };
     table.add_row(Row::new(vec![
         Cell::new(if now_total > prev_total {
-            "Total Profit"
+            "Total Profit Today"
         } else if now_total < prev_total {
-            "Total Loss"
+            "Total Loss Today"
         } else {
             "Balance"
         })
         .with_style(Attr::Bold)
         .with_style(Attr::ForegroundColor(color::WHITE)),
         Cell::new(
-            now_total
+            (now_total - prev_total)
+                .abs()
                 .separate_by_policy(CURR_FORMAT)
                 .to_string()
                 .as_str(),
@@ -378,4 +401,19 @@ pub fn get_users(path: &str) -> Result<Vec<User>, Error> {
         .expect("Failed to read file");
     let users: Vec<User> = serde_json::from_str(&contents).expect("Invalid JSON");
     Ok(users)
+}
+
+fn read_single_character() -> io::Result<char> {
+    let mut input = String::new();
+    match io::stdin().read_line(&mut input) {
+        Ok(_) => {
+            print!("{}", input);
+            if input.trim() != "" {
+                Ok(input.trim().chars().nth(0).unwrap())
+            } else {
+                Err(Error::new(io::ErrorKind::InvalidInput, "Invalid Input"))
+            }
+        }
+        Err(error) => Err(error),
+    }
 }
