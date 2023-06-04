@@ -5,7 +5,7 @@ on:
     branches:
       - main
 jobs:
-  build:
+  build-linux-windows:
     runs-on: ubuntu-latest
 
     steps:
@@ -52,7 +52,7 @@ jobs:
 
       - name: Get Version from Cargo.toml
         id: get_version
-        run: echo "::set-output name=version::$(cargo metadata --format-version=1 | jq -r '.packages[0].version')"
+        run: echo "::set-output name=version::$(cat Cargo.toml | jq -r '.package.version')"
 
       - name: Create Release
         id: create_release
@@ -85,4 +85,57 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: target/x86_64-pc-windows-gnu/release/ipo.exe
           asset_name: ipo-windows.exe
+          asset_content_type: application/octet-stream
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Set up Rust
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install macOS Target
+        run: rustup target add x86_64-apple-darwin
+
+      - name: Build for macOS
+        run: cargo build --release --target=x86_64-apple-darwin
+        id: macos
+
+      - name: Archive macOS Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ipo-macos
+          path: target/x86_64-apple-darwin/release/ipo
+
+      - name: Get Version from Cargo.toml
+        id: get_version
+        run: echo "::set-output name=version::$(cargo metadata --format-version=1 | jq -r '.packages[0].version')"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          release_name: Release ${{ steps.get_version.outputs.version }}
+          body: |
+            Release of ipo
+          draft: false
+          prerelease: false
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: target/x86_64-apple-darwin/release/ipo
+          asset_name: ipo-macos
           asset_content_type: application/octet-stream
