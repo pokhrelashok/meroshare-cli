@@ -1,4 +1,4 @@
-name: App Build
+name: Rust Cross Compilation
 
 on:
   push:
@@ -12,27 +12,80 @@ jobs:
     steps:
       - name: Set up Rust
         uses: actions/checkout@v2
-      
+
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
 
-      - name: Build
+      - name: Build for Linux
         run: cargo build --release --target=x86_64-unknown-linux-gnu
+        id: linux
 
-      - name: Archive Artifacts
+      - name: Archive Linux Artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: ipo
+          name: ipo-linux
           path: target/x86_64-unknown-linux-gnu/release/ipo
 
-      - name: Release Artifacts
-        id: release
-        uses: softprops/action-gh-release@v1
+      - name: Build for Windows
+        run: cargo build --release --target=x86_64-pc-windows-gnu
+        id: windows
+
+      - name: Archive Windows Artifacts
+        uses: actions/upload-artifact@v2
         with:
-          files: target/x86_64-unknown-linux-gnu/release/ipo
-          token: ${{ secrets.GITHUB_TOKEN }}
+          name: ipo-windows
+          path: target/x86_64-pc-windows-gnu/release/ipo.exe
+
+      - name: Build for macOS
+        run: cargo build --release --target=x86_64-apple-darwin
+        id: macos
+
+      - name: Archive macOS Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ipo-macos
+          path: target/x86_64-apple-darwin/release/ipo
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
           body: |
             Release of ipo
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: target/x86_64-unknown-linux-gnu/release/ipo
+          asset_name: ipo-linux
+          asset_content_type: application/octet-stream
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: target/x86_64-pc-windows-gnu/release/ipo.exe
+          asset_name: ipo-windows.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: target/x86_64-apple-darwin/release/ipo
+          asset_name: ipo-macos
+          asset_content_type: application/octet-stream
