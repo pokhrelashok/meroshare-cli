@@ -48,16 +48,6 @@ jobs:
           name: ipo-windows
           path: target/x86_64-pc-windows-gnu/release/ipo.exe
 
-      - name: Build for macOS
-        run: cargo build --release
-        id: macos
-
-      - name: Archive macOS Artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: ipo-macos
-          path: target/release/ipo
-
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
