@@ -407,7 +407,6 @@ fn read_single_character() -> io::Result<char> {
     let mut input = String::new();
     match io::stdin().read_line(&mut input) {
         Ok(_) => {
-            print!("{}", input);
             if input.trim() != "" {
                 Ok(input.trim().chars().nth(0).unwrap())
             } else {
