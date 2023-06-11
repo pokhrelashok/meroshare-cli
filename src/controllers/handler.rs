@@ -302,8 +302,7 @@ pub async fn view_transactions<'a>(users: &MutexGuard<'a, Vec<User>>) {
 fn select_user<'a>(users: &MutexGuard<'a, Vec<User>>) -> Option<usize> {
     print_users(users);
     print!("Choose User: ");
-    let input = read_single_character().unwrap();
-    let sn = input.to_digit(10).unwrap() as usize;
+    let sn = read_number().unwrap();
     if sn > 0 && sn <= users.len() {
         return Some(sn);
     }
@@ -409,6 +408,19 @@ fn read_single_character() -> io::Result<char> {
         Ok(_) => {
             if input.trim() != "" {
                 Ok(input.trim().chars().nth(0).unwrap())
+            } else {
+                Err(Error::new(io::ErrorKind::InvalidInput, "Invalid Input"))
+            }
+        }
+        Err(error) => Err(error),
+    }
+}
+fn read_number() -> io::Result<usize> {
+    let mut input = String::new();
+    match io::stdin().read_line(&mut input) {
+        Ok(_) => {
+            if input.trim() != "" {
+                Ok(input.trim().parse::<usize>().unwrap())
             } else {
                 Err(Error::new(io::ErrorKind::InvalidInput, "Invalid Input"))
             }
