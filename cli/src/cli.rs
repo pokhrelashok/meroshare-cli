@@ -4,16 +4,14 @@ use async_recursion::async_recursion;
 use indicatif::ProgressBar;
 use lazy_static::lazy_static;
 use meroshare::{
-    user, CompanyApplication, IPOAppliedResult, IPOResult, Meroshare, Portfolio, CURR_FORMAT,
+    CompanyApplication, IPOAppliedResult, IPOResult, Meroshare, Portfolio, CURR_FORMAT,
 };
 use prettytable::{color, row, Cell, Row};
 use prettytable::{Attr, Table};
-use std::cell::RefCell;
 use std::fs::File;
 use std::io::Read;
 use std::io::{self, Error, Write};
 use std::path::Path;
-use std::sync::Arc;
 use std::{env, vec};
 use thousands::Separable;
 use tokio::sync::{Mutex, MutexGuard};
@@ -40,7 +38,7 @@ impl Handler {
             meroshare: Meroshare::new(),
         }
     }
-    // #[async_recursion]
+    #[async_recursion]
     pub async fn handle(&mut self) {
         loop {
             let args: Vec<String> = env::args().collect();
@@ -90,6 +88,7 @@ impl Handler {
                 },
                 Err(_) => {
                     println!("Invalid Choice!");
+                    self.handle().await;
                 }
             }
             print!("Press (m) to show menu: ");

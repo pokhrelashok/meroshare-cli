@@ -1,4 +1,3 @@
-use prettytable::{Attr, Cell, Row, Table};
 use serde::Deserialize;
 fn default_bank_index() -> usize {
     1

@@ -4,7 +4,6 @@ use reqwest::Method;
 use response::ApiResponseApplicationReport;
 use response::ApiResponseCurrentIssue;
 use serde_json::json;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use tokio::sync::Mutex;
 
@@ -47,32 +46,33 @@ use crate::user::UserDetails;
 const PORTFOLIO_URL: &str = "https://backend.cdsc.com.np/api/meroShareView/";
 const MERO_SHARE_URL: &str = "https://backend.cdsc.com.np/api/meroShare/";
 
-pub struct Meroshare {
-    capitals: RefCell<Vec<Capital>>,
-    tokens: RefCell<HashMap<String, String>>,
+pub struct Meroshare;
+lazy_static! {
+    static ref CAPITALS: Mutex<Vec<Capital>> = Mutex::new(vec![]);
+    static ref TOKENS: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
 }
-
 impl Meroshare {
     pub fn new() -> Meroshare {
-        Meroshare {
-            capitals: RefCell::new(Vec::new()),
-            tokens: RefCell::new(HashMap::new()),
-        }
+        Meroshare {}
     }
     async fn get_auth_header(&mut self, user: &User) -> Result<HashMap<String, String>, Error> {
         let mut token = String::from("");
-        let mut tokens = self.tokens.borrow_mut();
-        let mut capitals = self.capitals.borrow_mut();
-        match tokens.get(&user.username) {
+        let mut token_guard = TOKENS.lock().await;
+        let mut capital_guard = CAPITALS.lock().await;
+        match token_guard.get(&user.username) {
             Some(t) => {
                 token = t.clone();
             }
             None => {
-                if capitals.len() == 0 {
+                if capital_guard.len() == 0 {
                     let mut fetched_capitals = self.get_capitals().await.unwrap();
-                    capitals.append(&mut fetched_capitals);
+                    capital_guard.append(&mut fetched_capitals);
                 }
-                let dp_id = capitals.iter().find(|&r| r.code == user.dp).unwrap().id;
+                let dp_id = capital_guard
+                    .iter()
+                    .find(|&r| r.code == user.dp)
+                    .unwrap()
+                    .id;
                 let body = json!({
                     "clientId":dp_id,
                     "username":user.username,
@@ -89,7 +89,7 @@ impl Meroshare {
                             .to_str()
                             .unwrap()
                             .to_owned();
-                        tokens.insert(user.username.clone(), token.clone());
+                        token_guard.insert(user.username.clone(), token.clone());
                     }
                     Err(_error) => {}
                 }
