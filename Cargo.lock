@@ -56,6 +56,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "cli"
+version = "1.5.0"
+dependencies = [
+ "async-recursion",
+ "indicatif",
+ "lazy_static",
+ "meroshare",
+ "prettytable-rs",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thousands",
+ "tokio",
+]
+
+[[package]]
 name = "console"
 version = "0.15.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -436,21 +452,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12b6ee2129af8d4fb011108c73d99a1b83a85977f23b82460c0ae2e25bb4b57f"
 
 [[package]]
-name = "ipo"
-version = "1.5.0"
-dependencies = [
- "async-recursion",
- "indicatif",
- "lazy_static",
- "prettytable-rs",
- "reqwest",
- "serde",
- "serde_json",
- "thousands",
- "tokio",
-]
-
-[[package]]
 name = "is-terminal"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -519,6 +520,19 @@ name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
+
+[[package]]
+name = "meroshare"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "prettytable-rs",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thousands",
+ "tokio",
+]
 
 [[package]]
 name = "mime"

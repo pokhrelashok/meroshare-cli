@@ -1,0 +1,347 @@
+use lazy_static::lazy_static;
+use reqwest::Error;
+use reqwest::Method;
+use response::ApiResponseApplicationReport;
+use response::ApiResponseCurrentIssue;
+use serde_json::json;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use tokio::sync::Mutex;
+
+#[path = "models/bank.rs"]
+mod bank;
+#[path = "models/capital.rs"]
+mod capital;
+#[path = "models/company.rs"]
+mod company;
+#[path = "utils/currency.rs"]
+mod currency;
+#[path = "models/ipo.rs"]
+mod ipo;
+#[path = "models/portfolio.rs"]
+mod portfolio;
+#[path = "utils/request.rs"]
+mod request;
+#[path = "models/response.rs"]
+mod response;
+#[path = "models/transaction.rs"]
+mod transaction;
+#[path = "models/user.rs"]
+pub mod user;
+
+use crate::bank::Bank;
+use crate::bank::BankDetails;
+use crate::capital::Capital;
+use crate::company::Company;
+pub use crate::company::CompanyApplication;
+use crate::company::Prospectus;
+pub use crate::currency::CURR_FORMAT;
+pub use crate::ipo::IPOAppliedResult;
+pub use crate::ipo::IPOResult;
+pub use crate::portfolio::Portfolio;
+use crate::request::make_request;
+use crate::transaction::TransactionView;
+pub use crate::user::User;
+use crate::user::UserDetails;
+
+const PORTFOLIO_URL: &str = "https://backend.cdsc.com.np/api/meroShareView/";
+const MERO_SHARE_URL: &str = "https://backend.cdsc.com.np/api/meroShare/";
+
+pub struct Meroshare {
+    capitals: RefCell<Vec<Capital>>,
+    tokens: RefCell<HashMap<String, String>>,
+}
+
+impl Meroshare {
+    pub fn new() -> Meroshare {
+        Meroshare {
+            capitals: RefCell::new(Vec::new()),
+            tokens: RefCell::new(HashMap::new()),
+        }
+    }
+    async fn get_auth_header(&mut self, user: &User) -> Result<HashMap<String, String>, Error> {
+        let mut token = String::from("");
+        let mut tokens = self.tokens.borrow_mut();
+        let mut capitals = self.capitals.borrow_mut();
+        match tokens.get(&user.username) {
+            Some(t) => {
+                token = t.clone();
+            }
+            None => {
+                if capitals.len() == 0 {
+                    let mut fetched_capitals = self.get_capitals().await.unwrap();
+                    capitals.append(&mut fetched_capitals);
+                }
+                let dp_id = capitals.iter().find(|&r| r.code == user.dp).unwrap().id;
+                let body = json!({
+                    "clientId":dp_id,
+                    "username":user.username,
+                    "password":user.password,
+                });
+                let url = MERO_SHARE_URL.to_string() + "auth/";
+                let result = make_request(&url, Method::POST, Some(body), None).await;
+                match result {
+                    Ok(value) => {
+                        token = value
+                            .headers()
+                            .get("authorization")
+                            .unwrap()
+                            .to_str()
+                            .unwrap()
+                            .to_owned();
+                        tokens.insert(user.username.clone(), token.clone());
+                    }
+                    Err(_error) => {}
+                }
+            }
+        }
+        let mut headers = HashMap::new();
+        headers.insert(String::from("Authorization"), token.as_str().to_string());
+        Ok(headers)
+    }
+
+    async fn get_capitals(&self) -> Result<Vec<Capital>, Error> {
+        let url = MERO_SHARE_URL.to_string() + "capital/";
+        let result = make_request(&url, Method::GET, None, None).await;
+        match result {
+            Ok(value) => {
+                let banks: Vec<Capital> = value.json().await?;
+                Ok(banks)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    #[allow(dead_code)]
+
+    pub async fn get_user_banks(&mut self, user: &User) -> Result<Vec<Bank>, Error> {
+        let headers = self.get_auth_header(user).await.unwrap();
+        let url = MERO_SHARE_URL.to_string() + "bank/";
+        let result = make_request(&url, Method::GET, None, Some(headers)).await;
+        match result {
+            Ok(value) => {
+                let banks: Vec<Bank> = value.json().await?;
+                Ok(banks)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    pub async fn get_bank_details(&mut self, id: u32, user: &User) -> Result<BankDetails, Error> {
+        let headers = self.get_auth_header(user).await.unwrap();
+        let url = MERO_SHARE_URL.to_string() + "bank/" + id.to_string().as_str();
+        let result = make_request(&url, Method::GET, None, Some(headers)).await;
+        match result {
+            Ok(value) => {
+                let banks: BankDetails = value.json().await?;
+                Ok(banks)
+            }
+            Err(error) => Err(error),
+        }
+    }
+    pub async fn get_user_details(&mut self, user: &User) -> Result<UserDetails, Error> {
+        let headers = self.get_auth_header(user).await.unwrap();
+        let url = MERO_SHARE_URL.to_string() + "ownDetail/";
+        let result = make_request(&url, Method::GET, None, Some(headers)).await;
+        match result {
+            Ok(value) => {
+                let user: UserDetails = value.json().await?;
+                Ok(user)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    #[allow(dead_code)]
+
+    pub async fn get_current_issue(&mut self, user: &User) -> Result<Vec<Company>, Error> {
+        let headers = self.get_auth_header(user).await.unwrap();
+        let url = MERO_SHARE_URL.to_string() + "companyShare/currentIssue/";
+        let body = json!({
+            "filterFieldParams": [
+                {"key": "companyIssue.companyISIN.script", "alias":"Scrip"},
+                {"key": "companyIssue.companyISIN.company.name", "alias": "Company Name"},
+                {"key": "companyIssue.assignedToClient.name", "value":"", "alias": "Issue Manager"}
+            ],
+            "page":1,
+            "size":200,
+            "searchRoleViewConstants":"VIEW_OPEN_SHARE",
+            "filterDateParams":[
+                {"key": "minIssueOpenDate", "condition": "", "alias": "", "value": ""},
+                {"key": "maxIssueCloseDate", "condition": "", "alias":"", "value": ""}
+            ]
+        });
+        let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
+        match result {
+            Ok(value) => {
+                let response: ApiResponseCurrentIssue = value.json().await.unwrap();
+                Ok(response.object)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    #[allow(dead_code)]
+
+    pub async fn get_application_report(
+        &mut self,
+        user: &User,
+    ) -> Result<Vec<CompanyApplication>, Error> {
+        let headers = self.get_auth_header(user).await.unwrap();
+        let url = MERO_SHARE_URL.to_string() + "applicantForm/active/search/";
+        let body = json!({
+            "filterFieldParams": [
+                {
+                    "key": "companyShare.companyIssue.companyISIN.script",
+                    "alias": "Scrip"
+                },
+                {
+                    "key": "companyShare.companyIssue.companyISIN.company.name",
+                    "alias": "Company Name"
+                }
+            ],
+            "page": 1,
+            "size": 4,
+            "searchRoleViewConstants": "VIEW_APPLICANT_FORM_COMPLETE",
+            "filterDateParams": [
+                {
+                    "key": "appliedDate",
+                    "condition": "",
+                    "alias": "",
+                    "value": ""
+                },
+                {
+                    "key": "appliedDate",
+                    "condition": "",
+                    "alias": "",
+                    "value": ""
+                }
+            ]
+        });
+        let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
+        match result {
+            Ok(value) => {
+                let response: ApiResponseApplicationReport = value.json().await?;
+                Ok(response.object)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    pub async fn get_company_result(
+        &mut self,
+        user: &User,
+        company_index: usize,
+    ) -> Result<IPOResult, Error> {
+        let headers = self.get_auth_header(user).await.unwrap();
+        let shares = self.get_application_report(user).await.unwrap();
+        let application = shares.get(company_index).unwrap();
+        let url = MERO_SHARE_URL.to_string()
+            + "applicantForm/report/detail/"
+            + (application.id).to_string().as_str();
+        let result = make_request(&url, Method::GET, None, Some(headers)).await;
+        match result {
+            Ok(value) => {
+                let result: IPOResult = value.json().await?;
+                Ok(result)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    pub async fn get_company_prospectus(
+        &mut self,
+        user: &User,
+        id: i32,
+    ) -> Result<Prospectus, Error> {
+        let headers = self.get_auth_header(user).await.unwrap();
+        let url = MERO_SHARE_URL.to_string() + "active/" + (id).to_string().as_str();
+        let result = make_request(&url, Method::GET, None, Some(headers)).await;
+        match result {
+            Ok(value) => {
+                let result: Prospectus = value.json().await?;
+                Ok(result)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    pub async fn get_portfolio(&mut self, user: &User) -> Result<Portfolio, Error> {
+        let headers = self.get_auth_header(user).await.unwrap();
+        let user_details = self.get_user_details(&user).await.unwrap();
+        let url = PORTFOLIO_URL.to_string() + "myPortfolio";
+        let body = json!({
+            "clientCode":user.dp,
+            "demat":[user_details.demat],
+            "page":1,
+            "size":500,
+            "sortAsc":true,
+            "sortBy":"script",
+        });
+        let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
+        match result {
+            Ok(value) => {
+                let result: Portfolio = value.json().await?;
+                Ok(result)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    pub async fn get_transactions(&mut self, user: &User) -> Result<TransactionView, Error> {
+        let headers = self.get_auth_header(user).await.unwrap();
+        let user_details = self.get_user_details(&user).await.unwrap();
+        let url = PORTFOLIO_URL.to_string() + "myTransaction";
+        let body = json!({
+            "boid":user_details.demat,
+            "clientCode":user.dp,
+            "page":1,
+            "requestTypeScript":false,
+            "script":null,
+            "size":200,
+        });
+        let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
+        match result {
+            Ok(value) => {
+                let result: TransactionView = value.json().await?;
+                Ok(result)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    pub async fn apply_share(
+        &mut self,
+        user: &User,
+        company_index: usize,
+    ) -> Result<IPOAppliedResult, Error> {
+        let headers = self.get_auth_header(user).await.unwrap();
+        let shares = self.get_current_issue(user).await.unwrap();
+        let banks = self.get_user_banks(user).await.unwrap();
+        let bank = banks.get(user.bank_index - 1).unwrap();
+        let bank_details = self.get_bank_details(bank.id, user).await.unwrap();
+        let user_details = self.get_user_details(user).await.unwrap();
+        let opening = shares.get(company_index).unwrap();
+        let url = MERO_SHARE_URL.to_string() + "applicantForm/share/apply/";
+        let body = json!({
+            "accountBranchId":bank_details.account_branch_id,
+            "accountNumber":bank_details.account_number,
+            "appliedKitta":10,
+            "bankId":bank.id,
+            "boid":user_details.boid,
+            "companyShareId":opening.company_share_id,
+            "crnNumber":user.crn,
+            "customerId":bank_details.id,
+            "demat":user_details.demat,
+            "transactionPIN":user.pin,
+        });
+        let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
+        match result {
+            Ok(value) => {
+                let result: IPOAppliedResult = value.json().await?;
+                Ok(result)
+            }
+            Err(error) => Err(error),
+        }
+    }
+}
