@@ -324,6 +324,7 @@ impl Handler {
     fn select_user<'a>(&mut self, users: &MutexGuard<'a, Vec<User>>) -> Option<usize> {
         self.print_users(users);
         print!("Choose User: ");
+        io::stdout().flush().unwrap();
         let sn = self.read_number().unwrap();
         if sn > 0 && sn <= users.len() {
             return Some(sn);
