@@ -13,7 +13,7 @@ pub struct TransactionView {
 }
 
 impl TransactionView {
-    pub fn print(&self, user: &User) {
+    pub fn print_table(&self, user: &User) {
         let mut table = Table::new();
         table.add_row(Row::new(vec![Cell::new(
             format!("Transactions of {}", user.name).as_str(),

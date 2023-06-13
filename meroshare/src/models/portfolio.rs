@@ -16,7 +16,7 @@ pub struct Portfolio {
     pub items: Vec<PortfolioItem>,
 }
 impl Portfolio {
-    pub fn print(&self, user: &User) {
+    pub fn print_table(&self, user: &User) {
         let mut table = Table::new();
         table.add_row(Row::new(vec![Cell::new(
             format!("Portfolio of {}", user.name).as_str(),

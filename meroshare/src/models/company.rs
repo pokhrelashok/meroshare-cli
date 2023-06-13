@@ -82,7 +82,7 @@ pub struct Prospectus {
 }
 
 impl Prospectus {
-    pub fn print(&self) {
+    pub fn print_table(&self) {
         let mut table = Table::new();
         table.add_row(Row::new(vec![
             Cell::new("Company Name"),

@@ -187,7 +187,7 @@ impl Handler {
             .get_company_prospectus(user, id)
             .await
             .unwrap();
-        prospectus.print();
+        prospectus.print_table();
         print!("Are you sure you want to fill this share(y/n)? ");
 
         io::stdout().flush().unwrap();
@@ -315,7 +315,7 @@ impl Handler {
             Some(sn) => {
                 let user = users.get(sn - 1).unwrap();
                 let portfolio = self.meroshare.get_portfolio(user).await.unwrap();
-                portfolio.print(user);
+                portfolio.print_table(user);
             }
             None => todo!(),
         }
@@ -364,7 +364,7 @@ impl Handler {
             Some(sn) => {
                 let user = users.get(sn - 1).unwrap();
                 let transactions = self.meroshare.get_transactions(user).await.unwrap();
-                transactions.print(user);
+                transactions.print_table(user);
             }
             None => todo!(),
         }

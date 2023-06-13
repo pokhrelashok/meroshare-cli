@@ -1,4 +1,3 @@
-use lazy_static::lazy_static;
 use reqwest::Error;
 use reqwest::Method;
 use response::ApiResponseApplicationReport;
@@ -39,26 +38,28 @@ pub use crate::ipo::IPOAppliedResult;
 pub use crate::ipo::IPOResult;
 pub use crate::portfolio::Portfolio;
 use crate::request::make_request;
-use crate::transaction::TransactionView;
+pub use crate::transaction::TransactionView;
 pub use crate::user::User;
 use crate::user::UserDetails;
 
 const PORTFOLIO_URL: &str = "https://backend.cdsc.com.np/api/meroShareView/";
 const MERO_SHARE_URL: &str = "https://backend.cdsc.com.np/api/meroShare/";
 
-pub struct Meroshare;
-lazy_static! {
-    static ref CAPITALS: Mutex<Vec<Capital>> = Mutex::new(vec![]);
-    static ref TOKENS: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
+pub struct Meroshare {
+    capitals: Mutex<Vec<Capital>>,
+    tokens: Mutex<HashMap<String, String>>,
 }
 impl Meroshare {
     pub fn new() -> Meroshare {
-        Meroshare {}
+        Meroshare {
+            capitals: Mutex::new(vec![]),
+            tokens: Mutex::new(HashMap::new()),
+        }
     }
     async fn get_auth_header(&mut self, user: &User) -> Result<HashMap<String, String>, Error> {
         let mut token = String::from("");
-        let mut token_guard = TOKENS.lock().await;
-        let mut capital_guard = CAPITALS.lock().await;
+        let mut token_guard = self.tokens.lock().await;
+        let mut capital_guard = self.capitals.lock().await;
         match token_guard.get(&user.username) {
             Some(t) => {
                 token = t.clone();
