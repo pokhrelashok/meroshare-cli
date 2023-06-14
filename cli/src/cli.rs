@@ -87,13 +87,13 @@ impl Handler {
                     }
                 },
                 Err(_) => {
-                    println!("Invalid Choice!");
-                    self.handle().await;
+                    Handler::invalid_choice();
+                    continue;
                 }
             }
             print!("Press (m) to show menu: ");
             io::stdout().flush().unwrap();
-            let char = self.read_single_character().unwrap();
+            let char = Handler::read_single_character().unwrap();
             if char != 'm' {
                 break;
             }
@@ -124,7 +124,7 @@ impl Handler {
         print!("Choose an action? ");
         io::stdout().flush().unwrap();
 
-        let input = self.read_single_character().unwrap();
+        let input = Handler::read_single_character().unwrap();
         match input {
             '1' => Ok(Action::ListOpenShares),
             '2' => Ok(Action::ListResultShares),
@@ -134,7 +134,7 @@ impl Handler {
             _ => Err("Invalid Selection".to_string()),
         }
     }
-    fn read_single_character(&self) -> io::Result<char> {
+    fn read_single_character() -> io::Result<char> {
         let mut input = String::new();
         match io::stdin().read_line(&mut input) {
             Ok(_) => {
@@ -148,6 +148,7 @@ impl Handler {
         }
     }
 
+    #[async_recursion]
     async fn list_open_shares<'a>(&mut self, users: &MutexGuard<'a, Vec<User>>) {
         let user = users.get(0).unwrap();
         let shares = self.meroshare.get_current_issue(user).await.unwrap();
@@ -177,6 +178,9 @@ impl Handler {
         if sn > 0 && sn <= shares.len() {
             self.fill_share(shares.get(sn - 1).unwrap().company_share_id, sn - 1, users)
                 .await;
+        } else {
+            Handler::invalid_choice();
+            self.list_open_shares(users).await;
         }
     }
 
@@ -191,7 +195,7 @@ impl Handler {
         print!("Are you sure you want to fill this share(y/n)? ");
 
         io::stdout().flush().unwrap();
-        let input = self.read_single_character().unwrap();
+        let input = Handler::read_single_character().unwrap();
         let mut results: Vec<IPOAppliedResult> = vec![];
         if input != 'y' && input != 'n' {
             print!("Invalid Selection");
@@ -255,7 +259,8 @@ impl Handler {
         }
         table.printstd();
         print!("Which share's result do you want to check? ");
-        let input = self.read_single_character().unwrap();
+        io::stdout().flush().unwrap();
+        let input = Handler::read_single_character().unwrap();
         let sn = input.to_digit(10).unwrap() as usize;
         if sn > 0 && sn <= shares.len() {
             self.check_result(shares.get(sn - 1).unwrap(), sn - 1, users)
@@ -310,6 +315,7 @@ impl Handler {
         table.printstd();
     }
 
+    #[async_recursion]
     pub async fn view_portfolio<'a>(&mut self, users: &MutexGuard<'a, Vec<User>>) {
         match self.select_user(users) {
             Some(sn) => {
@@ -317,7 +323,9 @@ impl Handler {
                 let portfolio = self.meroshare.get_portfolio(user).await.unwrap();
                 portfolio.print_table(user);
             }
-            None => todo!(),
+            None => {
+                self.view_portfolio(users).await;
+            }
         }
     }
 
@@ -325,11 +333,13 @@ impl Handler {
         self.print_users(users);
         print!("Choose User: ");
         io::stdout().flush().unwrap();
-        let sn = self.read_number().unwrap();
+        let sn = Handler::read_number().unwrap();
         if sn > 0 && sn <= users.len() {
             return Some(sn);
+        } else {
+            Handler::invalid_choice();
+            self.select_user(users);
         }
-        println!("Invalid choise!");
         return None;
     }
 
@@ -347,7 +357,7 @@ impl Handler {
         }
         table.printstd();
     }
-    fn read_number(&self) -> io::Result<usize> {
+    fn read_number() -> io::Result<usize> {
         let mut input = String::new();
         match io::stdin().read_line(&mut input) {
             Ok(_) => {
@@ -375,7 +385,7 @@ impl Handler {
         println!("1. Family");
         print!("Choose a tag? ");
         io::stdout().flush().unwrap();
-        let input = self.read_single_character().unwrap();
+        let input = Handler::read_single_character().unwrap();
         if input != '1' {
             return;
         }
@@ -452,5 +462,10 @@ impl Handler {
             })),
         ]));
         table.printstd();
+    }
+
+    fn invalid_choice() {
+        println!("Invalid choice!");
+        io::stdout().flush().unwrap();
     }
 }
