@@ -38,35 +38,42 @@ impl Handler {
             meroshare: Meroshare::new(),
         }
     }
-    #[async_recursion]
+
     pub async fn handle(&mut self) {
-        loop {
-            let args: Vec<String> = env::args().collect();
-            #[allow(unused_assignments)]
-            let mut directory_path = String::new();
-            if let Some(dir_path) = args.get(1) {
-                directory_path = dir_path.to_string();
+        let args: Vec<String> = env::args().collect();
+        #[allow(unused_assignments)]
+        let mut directory_path = String::new();
+        if let Some(dir_path) = args.get(1) {
+            directory_path = dir_path.to_string();
+        } else {
+            if self.users_json_exists("users.json") {
+                directory_path = String::from("users.json");
             } else {
-                if self.users_json_exists("users.json") {
-                    directory_path = String::from("users.json");
+                print!("Path to the users JSON file? ");
+                io::stdout().flush().unwrap();
+                let mut input = String::new();
+                io::stdin()
+                    .read_line(&mut input)
+                    .expect("Failed to read line");
+                if input.trim().is_empty() {
+                    println!("Invalid file path!");
+                    // self.handle().await;
                 } else {
-                    print!("Path to the users JSON file? ");
-                    io::stdout().flush().unwrap();
-                    let mut input = String::new();
-                    io::stdin()
-                        .read_line(&mut input)
-                        .expect("Failed to read line");
-                    if input.trim().is_empty() {
-                        println!("Invalid file path!");
-                        // self.handle().await;
-                    } else {
-                        directory_path = input.trim().to_owned();
-                    }
+                    directory_path = input.trim().to_owned();
                 }
             }
+        }
+        {
             let mut user_guard = USERS.lock().await;
             let mut users = self.get_users(directory_path.as_str()).unwrap();
             user_guard.append(&mut users);
+        }
+        self.handle_menu().await;
+    }
+    #[async_recursion]
+    pub async fn handle_menu(&mut self) {
+        let user_guard = USERS.lock().await;
+        loop {
             let action = self.print_menu();
             match action {
                 Ok(action) => match action {
