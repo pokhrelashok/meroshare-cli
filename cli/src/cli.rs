@@ -410,8 +410,8 @@ impl Handler {
             bar.inc(1);
         }
         bar.finish_and_clear();
-        let mut prev_total: f32 = 0.00;
-        let mut now_total: f32 = 0.00;
+        let mut prev_total: f64 = 0.00;
+        let mut now_total: f64 = 0.00;
         for portfolio in portfolios.iter() {
             prev_total += portfolio.total_value_of_prev_closing_price;
             now_total += portfolio.total_value_of_last_trans_price;

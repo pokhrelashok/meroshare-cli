@@ -1,4 +1,4 @@
-use prettytable::{Attr, Cell, Row, Table};
+use prettytable::{color, Attr, Cell, Row, Table};
 use serde::Deserialize;
 use thousands::Separable;
 
@@ -9,9 +9,9 @@ pub struct Portfolio {
     #[serde(rename = "totalItems")]
     pub total_items: f32,
     #[serde(rename = "totalValueOfLastTransPrice")]
-    pub total_value_of_last_trans_price: f32,
+    pub total_value_of_last_trans_price: f64,
     #[serde(rename = "totalValueOfPrevClosingPrice")]
-    pub total_value_of_prev_closing_price: f32,
+    pub total_value_of_prev_closing_price: f64,
     #[serde(rename = "meroShareMyPortfolio")]
     pub items: Vec<PortfolioItem>,
 }
@@ -30,9 +30,11 @@ impl Portfolio {
             Cell::new("LTP").with_style(Attr::Bold),
             Cell::new("Previous Value").with_style(Attr::Bold),
             Cell::new("Latest Value").with_style(Attr::Bold),
+            Cell::new("Profit/Loss").with_style(Attr::Bold),
         ]));
 
         for item in &self.items {
+            let gains = &item.value_of_last_trans_price - &item.value_of_prev_closing_price;
             table.add_row(Row::new(vec![
                 Cell::new(&item.script),
                 Cell::new(&item.current_balance.to_string()),
@@ -49,8 +51,20 @@ impl Portfolio {
                         .separate_by_policy(CURR_FORMAT)
                         .to_string(),
                 ),
+                Cell::new(
+                    format!("{:.1}", gains.abs())
+                        .separate_by_policy(CURR_FORMAT)
+                        .as_str(),
+                )
+                .with_style(Attr::Bold)
+                .with_style(Attr::ForegroundColor(if gains > 0.0 {
+                    color::GREEN
+                } else {
+                    color::RED
+                })),
             ]));
         }
+        let gains = &self.total_value_of_last_trans_price - &self.total_value_of_prev_closing_price;
         table.add_row(Row::new(vec![
             Cell::new(&self.items.len().to_string()).with_style(Attr::Bold),
             Cell::new(
@@ -76,6 +90,17 @@ impl Portfolio {
                     .to_string(),
             )
             .with_style(Attr::Bold),
+            Cell::new(
+                format!("{:.1}", gains.abs())
+                    .separate_by_policy(CURR_FORMAT)
+                    .as_str(),
+            )
+            .with_style(Attr::Bold)
+            .with_style(Attr::ForegroundColor(if gains > 0.0 {
+                color::GREEN
+            } else {
+                color::RED
+            })),
         ]));
         table.printstd();
     }
@@ -97,7 +122,7 @@ pub struct PortfolioItem {
     #[serde(rename = "valueAsOfPreviousClosingPrice")]
     pub value_as_of_previous_closing_price: String,
     #[serde(rename = "valueOfLastTransPrice")]
-    pub value_of_last_trans_price: f32,
+    pub value_of_last_trans_price: f64,
     #[serde(rename = "valueOfPrevClosingPrice")]
     pub value_of_prev_closing_price: f64,
 }
