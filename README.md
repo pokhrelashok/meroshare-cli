@@ -6,6 +6,21 @@ Are you tired of having to manually fill shares. Well this project has you cover
 
 Clone the repo or download the executable from the releases pages and run the executable.
 
+### Use with Docker
+
+To use with docker you can simply run:
+
+```
+docker build -t ipo .
+docker run -it --name ipo ipo
+```
+
+After building the container once, you can simply use `docker run` for subsequent use.
+
+```
+docker run -i ipo
+```
+
 ## Users List
 
 The script requires a JSON file containing the details about the users. If a `users.json` file is found in the same directory as the executable, the JSON is automatically picked and used, if not, the script prompts you to enter a path of the JSON file on starting.

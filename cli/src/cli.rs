@@ -98,7 +98,7 @@ impl Handler {
                     continue;
                 }
             }
-            print!("Press (m) to show menu: ");
+            print!("(m) to show menu | (q) to quit: ");
             io::stdout().flush().unwrap();
             let char = Handler::read_single_character().unwrap();
             if char != 'm' {
@@ -456,8 +456,7 @@ impl Handler {
             .with_style(Attr::Bold)
             .with_style(Attr::ForegroundColor(color::WHITE)),
             Cell::new(
-                (now_total - prev_total)
-                    .abs()
+                format!("{:.1}", (now_total - prev_total))
                     .separate_by_policy(CURR_FORMAT)
                     .to_string()
                     .as_str(),
