@@ -202,7 +202,7 @@ impl Meroshare {
                 }
             ],
             "page": 1,
-            "size": 4,
+            "size": 8,
             "searchRoleViewConstants": "VIEW_APPLICANT_FORM_COMPLETE",
             "filterDateParams": [
                 {
