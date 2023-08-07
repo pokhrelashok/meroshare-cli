@@ -342,7 +342,13 @@ impl Meroshare {
                 let result: IPOAppliedResult = value.json().await?;
                 Ok(result)
             }
-            Err(error) => Err(error),
+            Err(_) => {
+                let result: IPOAppliedResult = IPOAppliedResult {
+                    message: String::from("Something went wrong"),
+                    status: String::from("APPLICATION_FAILED"),
+                };
+                Ok(result)
+            }
         }
     }
 }
