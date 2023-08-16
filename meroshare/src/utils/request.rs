@@ -28,7 +28,7 @@ pub async fn make_request(
         HeaderValue::from_static("en-US,en;q=0.9"),
     );
     headers_map.insert("Connection", HeaderValue::from_static("keep-alive"));
-    headers_map.insert("Host", HeaderValue::from_static("backend.cdsc.com.np"));
+    headers_map.insert("Host", HeaderValue::from_static("webbackend.cdsc.com.np"));
     headers_map.insert(
         "Origin",
         HeaderValue::from_static("https://meroshare.cdsc.com.np"),

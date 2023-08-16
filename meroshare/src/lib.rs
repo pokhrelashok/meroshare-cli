@@ -42,8 +42,8 @@ pub use crate::transaction::TransactionView;
 pub use crate::user::User;
 use crate::user::UserDetails;
 
-const PORTFOLIO_URL: &str = "https://backend.cdsc.com.np/api/meroShareView/";
-const MERO_SHARE_URL: &str = "https://backend.cdsc.com.np/api/meroShare/";
+const PORTFOLIO_URL: &str = "https://webbackend.cdsc.com.np/api/meroShareView/";
+const MERO_SHARE_URL: &str = "https://webbackend.cdsc.com.np/api/meroShare/";
 
 pub struct Meroshare {
     capitals: Mutex<Vec<Capital>>,
@@ -330,7 +330,7 @@ impl Meroshare {
             "appliedKitta":10,
             "bankId":bank.id,
             "boid":user_details.boid,
-            "companyShareId":opening.company_share_id,
+        "companyShareId":opening.company_share_id,
             "crnNumber":user.crn,
             "customerId":bank_details.id,
             "demat":user_details.demat,

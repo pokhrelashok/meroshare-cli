@@ -248,30 +248,37 @@ impl Handler {
     }
     async fn list_results<'a>(&mut self, users: &MutexGuard<'a, Vec<User>>) {
         let user = users.get(0).unwrap();
-        let shares = self.meroshare.get_application_report(user).await.unwrap();
-        let mut table = Table::new();
-        table.add_row(Row::new(vec![
-            Cell::new("S.N.").with_style(Attr::Bold),
-            Cell::new("Company Name").with_style(Attr::Bold),
-            Cell::new("Type").with_style(Attr::Bold),
-            Cell::new("Status").with_style(Attr::Bold),
-        ]));
-        for (i, share) in shares.iter().enumerate() {
-            table.add_row(row![
-                i + 1,
-                share.company_name,
-                share.share_type_name,
-                share.status_name
-            ]);
-        }
-        table.printstd();
-        print!("Which share's result do you want to check? ");
-        io::stdout().flush().unwrap();
-        let input = Handler::read_single_character().unwrap();
-        let sn = input.to_digit(10).unwrap() as usize;
-        if sn > 0 && sn <= shares.len() {
-            self.check_result(shares.get(sn - 1).unwrap(), sn - 1, users)
-                .await;
+        let share_res = self.meroshare.get_application_report(user).await;
+        match share_res {
+            Ok(shares) => {
+                let mut table = Table::new();
+                table.add_row(Row::new(vec![
+                    Cell::new("S.N.").with_style(Attr::Bold),
+                    Cell::new("Company Name").with_style(Attr::Bold),
+                    Cell::new("Type").with_style(Attr::Bold),
+                    Cell::new("Status").with_style(Attr::Bold),
+                ]));
+                for (i, share) in shares.iter().enumerate() {
+                    table.add_row(row![
+                        i + 1,
+                        share.company_name,
+                        share.share_type_name,
+                        share.status_name
+                    ]);
+                }
+                table.printstd();
+                print!("Which share's result do you want to check? ");
+                io::stdout().flush().unwrap();
+                let input = Handler::read_single_character().unwrap();
+                let sn = input.to_digit(10).unwrap() as usize;
+                if sn > 0 && sn <= shares.len() {
+                    self.check_result(shares.get(sn - 1).unwrap(), sn - 1, users)
+                        .await;
+                }
+            }
+            Err(_) => {
+                println!("Ooops, doesn't look like meroshare is responding tonight!");
+            }
         }
     }
 
@@ -284,12 +291,15 @@ impl Handler {
         let bar = ProgressBar::new(users.len() as u64);
         let mut results: Vec<IPOResult> = vec![];
         for user in users.iter() {
-            results.push(
-                self.meroshare
-                    .get_company_result(user, index)
-                    .await
-                    .unwrap(),
-            );
+            let result = self.meroshare.get_company_result(user, index).await;
+            match result {
+                Ok(data) => {
+                    results.push(data);
+                }
+                Err(_) => {
+                    print!("Error for ${}", user.name);
+                }
+            }
             bar.inc(1);
         }
         bar.finish_and_clear();
