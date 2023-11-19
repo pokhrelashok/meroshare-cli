@@ -157,37 +157,45 @@ impl Handler {
 
     #[async_recursion]
     async fn list_open_shares<'a>(&mut self, users: &MutexGuard<'a, Vec<User>>) {
-        let user = users.get(0).unwrap();
-        let shares = self.meroshare.get_current_issue(user).await.unwrap();
-        let mut table = Table::new();
-        table.add_row(Row::new(vec![
-            Cell::new("S.N.").with_style(Attr::Bold),
-            Cell::new("Company Name").with_style(Attr::Bold),
-            Cell::new("Type").with_style(Attr::Bold),
-            Cell::new("Close Date").with_style(Attr::Bold),
-        ]));
-        for (i, share) in shares.iter().enumerate() {
-            table.add_row(row![
-                i + 1,
-                share.company_name,
-                share.share_type_name,
-                share.issue_close_date
-            ]);
-        }
-        table.printstd();
-        print!("Which share do you want to fill? ");
-        io::stdout().flush().unwrap();
-        let mut input = String::new();
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read line");
-        let sn = input.trim().parse::<usize>().unwrap();
-        if sn > 0 && sn <= shares.len() {
-            self.fill_share(shares.get(sn - 1).unwrap().company_share_id, sn - 1, users)
-                .await;
-        } else {
-            Handler::invalid_choice();
-            self.list_open_shares(users).await;
+        let user: &User = users.get(0).unwrap();
+        // let shares = .unwrap();
+
+        match self.meroshare.get_current_issue(user).await {
+            Ok(shares) => {
+                let mut table = Table::new();
+                table.add_row(Row::new(vec![
+                    Cell::new("S.N.").with_style(Attr::Bold),
+                    Cell::new("Company Name").with_style(Attr::Bold),
+                    Cell::new("Type").with_style(Attr::Bold),
+                    Cell::new("Close Date").with_style(Attr::Bold),
+                ]));
+                for (i, share) in shares.iter().enumerate() {
+                    table.add_row(row![
+                        i + 1,
+                        share.company_name,
+                        share.share_type_name,
+                        share.issue_close_date
+                    ]);
+                }
+                table.printstd();
+                print!("Which share do you want to fill? ");
+                io::stdout().flush().unwrap();
+                let mut input = String::new();
+                io::stdin()
+                    .read_line(&mut input)
+                    .expect("Failed to read line");
+                let sn = input.trim().parse::<usize>().unwrap();
+                if sn > 0 && sn <= shares.len() {
+                    self.fill_share(shares.get(sn - 1).unwrap().company_share_id, sn - 1, users)
+                        .await;
+                } else {
+                    Handler::invalid_choice();
+                    self.list_open_shares(users).await;
+                }
+            }
+            Err(e) => {
+                println!("{} for user {}", e, user.name)
+            }
         }
     }
 
@@ -199,7 +207,10 @@ impl Handler {
             .await
             .unwrap();
         prospectus.print_table();
-        print!("Are you sure you want to fill this share(y/n)? ");
+        print!(
+            "Are you sure you want to fill {} units of {} (y/n)? ",
+            prospectus.min_unit, prospectus.company_name
+        );
 
         io::stdout().flush().unwrap();
         let input = Handler::read_single_character().unwrap();
@@ -213,7 +224,12 @@ impl Handler {
 
         let bar = ProgressBar::new(users.len() as u64);
         for user in users.iter() {
-            results.push(self.meroshare.apply_share(user, index).await.unwrap());
+            results.push(
+                self.meroshare
+                    .apply_share(user, index, prospectus.min_unit)
+                    .await
+                    .unwrap(),
+            );
             bar.inc(1);
         }
         bar.finish_and_clear();
@@ -273,11 +289,12 @@ impl Handler {
                 let sn = input.to_digit(10).unwrap() as usize;
                 if sn > 0 && sn <= shares.len() {
                     self.check_result(shares.get(sn - 1).unwrap(), sn - 1, users)
-                        .await;
+                        .await
+                        .unwrap();
                 }
             }
-            Err(_) => {
-                println!("Ooops, doesn't look like meroshare is responding tonight!");
+            Err(e) => {
+                println!("{} for user {}", e, user.name)
             }
         }
     }
@@ -287,7 +304,7 @@ impl Handler {
         company: &CompanyApplication,
         index: usize,
         users: &MutexGuard<'a, Vec<User>>,
-    ) {
+    ) -> Result<(), &'static str> {
         let bar = ProgressBar::new(users.len() as u64);
         let mut results: Vec<IPOResult> = vec![];
         for user in users.iter() {
@@ -296,8 +313,8 @@ impl Handler {
                 Ok(data) => {
                     results.push(data);
                 }
-                Err(_) => {
-                    print!("Error for ${}", user.name);
+                Err(e) => {
+                    println!("{} for user {}", e, user.name);
                 }
             }
             bar.inc(1);
@@ -320,7 +337,10 @@ impl Handler {
                 Cell::new((i + 1).to_string().as_str()),
                 Cell::new(users.get(i).unwrap().name.as_str()),
                 Cell::new(&result.status).with_style(Attr::ForegroundColor(
-                    if result.status.contains("Not") || result.status.contains("Rejected") {
+                    if result.status.contains("Not")
+                        || result.status.contains("Failed")
+                        || result.status.contains("Rejected")
+                    {
                         color::RED
                     } else {
                         color::GREEN
@@ -330,6 +350,7 @@ impl Handler {
         }
         table.add_row(row);
         table.printstd();
+        Ok(())
     }
 
     #[async_recursion]
@@ -337,8 +358,14 @@ impl Handler {
         match self.select_user(users) {
             Some(sn) => {
                 let user = users.get(sn - 1).unwrap();
-                let portfolio = self.meroshare.get_portfolio(user).await.unwrap();
-                portfolio.print_table(user);
+                match self.meroshare.get_portfolio(user).await {
+                    Ok(portfolio) => {
+                        portfolio.print_table(user);
+                    }
+                    Err(e) => {
+                        println!("{} for user {}", e, user.name);
+                    }
+                }
             }
             None => {
                 self.view_portfolio(users).await;
@@ -391,8 +418,14 @@ impl Handler {
         match self.select_user(users) {
             Some(sn) => {
                 let user = users.get(sn - 1).unwrap();
-                let transactions = self.meroshare.get_transactions(user).await.unwrap();
-                transactions.print_table(user);
+                match self.meroshare.get_transactions(user).await {
+                    Ok(transactions) => {
+                        transactions.print_table(user);
+                    }
+                    Err(err) => {
+                        println!("{} for user {}", err, user.name)
+                    }
+                }
             }
             None => todo!(),
         }
@@ -415,9 +448,16 @@ impl Handler {
         let mut portfolios: Vec<Portfolio> = vec![];
         let bar = ProgressBar::new(tag_users.len() as u64);
         for user in tag_users.iter() {
-            let portfolio = self.meroshare.get_portfolio(user).await.unwrap();
-            portfolios.push(portfolio);
-            bar.inc(1);
+            match self.meroshare.get_portfolio(user).await {
+                Ok(portfolio) => {
+                    portfolios.push(portfolio);
+                    bar.inc(1);
+                }
+                Err(e) => {
+                    println!("{} for user {}", e, user.name);
+                    bar.inc(1);
+                }
+            }
         }
         bar.finish_and_clear();
         let mut prev_total: f64 = 0.00;

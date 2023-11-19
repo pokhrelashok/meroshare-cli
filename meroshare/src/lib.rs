@@ -1,5 +1,6 @@
 use reqwest::Error;
 use reqwest::Method;
+use reqwest::StatusCode;
 use response::ApiResponseApplicationReport;
 use response::ApiResponseCurrentIssue;
 use serde_json::json;
@@ -56,7 +57,10 @@ impl Meroshare {
             tokens: Mutex::new(HashMap::new()),
         }
     }
-    async fn get_auth_header(&mut self, user: &User) -> Result<HashMap<String, String>, Error> {
+    async fn get_auth_header(
+        &mut self,
+        user: &User,
+    ) -> Result<HashMap<String, String>, &'static str> {
         let mut token = String::from("");
         let mut token_guard = self.tokens.lock().await;
         let mut capital_guard = self.capitals.lock().await;
@@ -83,6 +87,10 @@ impl Meroshare {
                 let result = make_request(&url, Method::POST, Some(body), None).await;
                 match result {
                     Ok(value) => {
+                        let status_code = value.status();
+                        if status_code != StatusCode::OK {
+                            return Err("Failed To Login");
+                        }
                         token = value
                             .headers()
                             .get("authorization")
@@ -92,7 +100,9 @@ impl Meroshare {
                             .to_owned();
                         token_guard.insert(user.username.clone(), token.clone());
                     }
-                    Err(_error) => {}
+                    Err(_error) => {
+                        return Err("Failed To Login");
+                    }
                 }
             }
         }
@@ -155,30 +165,34 @@ impl Meroshare {
 
     #[allow(dead_code)]
 
-    pub async fn get_current_issue(&mut self, user: &User) -> Result<Vec<Company>, Error> {
-        let headers = self.get_auth_header(user).await.unwrap();
-        let url = MERO_SHARE_URL.to_string() + "companyShare/currentIssue/";
-        let body = json!({
-            "filterFieldParams": [
-                {"key": "companyIssue.companyISIN.script", "alias":"Scrip"},
-                {"key": "companyIssue.companyISIN.company.name", "alias": "Company Name"},
-                {"key": "companyIssue.assignedToClient.name", "value":"", "alias": "Issue Manager"}
-            ],
-            "page":1,
-            "size":200,
-            "searchRoleViewConstants":"VIEW_OPEN_SHARE",
-            "filterDateParams":[
-                {"key": "minIssueOpenDate", "condition": "", "alias": "", "value": ""},
-                {"key": "maxIssueCloseDate", "condition": "", "alias":"", "value": ""}
-            ]
-        });
-        let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
-        match result {
-            Ok(value) => {
-                let response: ApiResponseCurrentIssue = value.json().await.unwrap();
-                Ok(response.object)
+    pub async fn get_current_issue(&mut self, user: &User) -> Result<Vec<Company>, &str> {
+        match self.get_auth_header(user).await {
+            Ok(headers) => {
+                let url = MERO_SHARE_URL.to_string() + "companyShare/currentIssue/";
+                let body = json!({
+                    "filterFieldParams": [
+                        {"key": "companyIssue.companyISIN.script", "alias":"Scrip"},
+                        {"key": "companyIssue.companyISIN.company.name", "alias": "Company Name"},
+                        {"key": "companyIssue.assignedToClient.name", "value":"", "alias": "Issue Manager"}
+                    ],
+                    "page":1,
+                    "size":200,
+                    "searchRoleViewConstants":"VIEW_OPEN_SHARE",
+                    "filterDateParams":[
+                        {"key": "minIssueOpenDate", "condition": "", "alias": "", "value": ""},
+                        {"key": "maxIssueCloseDate", "condition": "", "alias":"", "value": ""}
+                    ]
+                });
+                let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
+                match result {
+                    Ok(value) => {
+                        let response: ApiResponseCurrentIssue = value.json().await.unwrap();
+                        Ok(response.object)
+                    }
+                    Err(_) => Err("Something went wrong"),
+                }
             }
-            Err(error) => Err(error),
+            Err(e) => return Err(e),
         }
     }
 
@@ -187,45 +201,49 @@ impl Meroshare {
     pub async fn get_application_report(
         &mut self,
         user: &User,
-    ) -> Result<Vec<CompanyApplication>, Error> {
-        let headers = self.get_auth_header(user).await.unwrap();
-        let url = MERO_SHARE_URL.to_string() + "applicantForm/active/search/";
-        let body = json!({
-            "filterFieldParams": [
-                {
-                    "key": "companyShare.companyIssue.companyISIN.script",
-                    "alias": "Scrip"
-                },
-                {
-                    "key": "companyShare.companyIssue.companyISIN.company.name",
-                    "alias": "Company Name"
+    ) -> Result<Vec<CompanyApplication>, &'static str> {
+        match self.get_auth_header(user).await {
+            Ok(headers) => {
+                let url = MERO_SHARE_URL.to_string() + "applicantForm/active/search/";
+                let body = json!({
+                    "filterFieldParams": [
+                        {
+                            "key": "companyShare.companyIssue.companyISIN.script",
+                            "alias": "Scrip"
+                        },
+                        {
+                            "key": "companyShare.companyIssue.companyISIN.company.name",
+                            "alias": "Company Name"
+                        }
+                    ],
+                    "page": 1,
+                    "size": 8,
+                    "searchRoleViewConstants": "VIEW_APPLICANT_FORM_COMPLETE",
+                    "filterDateParams": [
+                        {
+                            "key": "appliedDate",
+                            "condition": "",
+                            "alias": "",
+                            "value": ""
+                        },
+                        {
+                            "key": "appliedDate",
+                            "condition": "",
+                            "alias": "",
+                            "value": ""
+                        }
+                    ]
+                });
+                let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
+                match result {
+                    Ok(value) => {
+                        let response: ApiResponseApplicationReport = value.json().await.unwrap();
+                        Ok(response.object)
+                    }
+                    Err(_) => Err("Something went wrong"),
                 }
-            ],
-            "page": 1,
-            "size": 8,
-            "searchRoleViewConstants": "VIEW_APPLICANT_FORM_COMPLETE",
-            "filterDateParams": [
-                {
-                    "key": "appliedDate",
-                    "condition": "",
-                    "alias": "",
-                    "value": ""
-                },
-                {
-                    "key": "appliedDate",
-                    "condition": "",
-                    "alias": "",
-                    "value": ""
-                }
-            ]
-        });
-        let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
-        match result {
-            Ok(value) => {
-                let response: ApiResponseApplicationReport = value.json().await?;
-                Ok(response.object)
             }
-            Err(error) => Err(error),
+            Err(err) => Err(err),
         }
     }
 
@@ -233,20 +251,24 @@ impl Meroshare {
         &mut self,
         user: &User,
         company_index: usize,
-    ) -> Result<IPOResult, Error> {
-        let headers = self.get_auth_header(user).await.unwrap();
-        let shares = self.get_application_report(user).await.unwrap();
-        let application = shares.get(company_index).unwrap();
-        let url = MERO_SHARE_URL.to_string()
-            + "applicantForm/report/detail/"
-            + (application.id).to_string().as_str();
-        let result = make_request(&url, Method::GET, None, Some(headers)).await;
-        match result {
-            Ok(value) => {
-                let result: IPOResult = value.json().await?;
-                Ok(result)
+    ) -> Result<IPOResult, &'static str> {
+        match self.get_auth_header(user).await {
+            Ok(headers) => {
+                let shares = self.get_application_report(user).await.unwrap();
+                let application = shares.get(company_index).unwrap();
+                let url = MERO_SHARE_URL.to_string()
+                    + "applicantForm/report/detail/"
+                    + (application.id).to_string().as_str();
+                let result = make_request(&url, Method::GET, None, Some(headers)).await;
+                match result {
+                    Ok(value) => {
+                        let result: IPOResult = value.json().await.unwrap();
+                        Ok(result)
+                    }
+                    Err(_) => Err("Something went wrong"),
+                }
             }
-            Err(error) => Err(error),
+            Err(_) => Ok(IPOResult { status: "Failed to Fetch".to_string() }),
         }
     }
 
@@ -267,47 +289,55 @@ impl Meroshare {
         }
     }
 
-    pub async fn get_portfolio(&mut self, user: &User) -> Result<Portfolio, Error> {
-        let headers = self.get_auth_header(user).await.unwrap();
-        let user_details = self.get_user_details(&user).await.unwrap();
-        let url = PORTFOLIO_URL.to_string() + "myPortfolio";
-        let body = json!({
-            "clientCode":user.dp,
-            "demat":[user_details.demat],
-            "page":1,
-            "size":500,
-            "sortAsc":true,
-            "sortBy":"script",
-        });
-        let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
-        match result {
-            Ok(value) => {
-                let result: Portfolio = value.json().await?;
-                Ok(result)
+    pub async fn get_portfolio(&mut self, user: &User) -> Result<Portfolio, &'static str> {
+        match self.get_auth_header(user).await {
+            Ok(headers) => {
+                let user_details = self.get_user_details(&user).await.unwrap();
+                let url = PORTFOLIO_URL.to_string() + "myPortfolio";
+                let body = json!({
+                    "clientCode":user.dp,
+                    "demat":[user_details.demat],
+                    "page":1,
+                    "size":500,
+                    "sortAsc":true,
+                    "sortBy":"script",
+                });
+                let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
+                match result {
+                    Ok(value) => {
+                        let result: Portfolio = value.json().await.unwrap();
+                        Ok(result)
+                    }
+                    Err(_) => Err("Something went wrong"),
+                }
             }
-            Err(error) => Err(error),
+            Err(e) => Err(e),
         }
     }
 
-    pub async fn get_transactions(&mut self, user: &User) -> Result<TransactionView, Error> {
-        let headers = self.get_auth_header(user).await.unwrap();
-        let user_details = self.get_user_details(&user).await.unwrap();
-        let url = PORTFOLIO_URL.to_string() + "myTransaction";
-        let body = json!({
-            "boid":user_details.demat,
-            "clientCode":user.dp,
-            "page":1,
-            "requestTypeScript":false,
-            "script":null,
-            "size":200,
-        });
-        let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
-        match result {
-            Ok(value) => {
-                let result: TransactionView = value.json().await?;
-                Ok(result)
+    pub async fn get_transactions(&mut self, user: &User) -> Result<TransactionView, &'static str> {
+        match self.get_auth_header(user).await {
+            Ok(headers) => {
+                let user_details = self.get_user_details(&user).await.unwrap();
+                let url = PORTFOLIO_URL.to_string() + "myTransaction";
+                let body = json!({
+                    "boid":user_details.demat,
+                    "clientCode":user.dp,
+                    "page":1,
+                    "requestTypeScript":false,
+                    "script":null,
+                    "size":200,
+                });
+                let result = make_request(&url, Method::POST, Some(body), Some(headers)).await;
+                match result {
+                    Ok(value) => {
+                        let result: TransactionView = value.json().await.unwrap();
+                        Ok(result)
+                    }
+                    Err(_) => Err("Something went wrong"),
+                }
             }
-            Err(error) => Err(error),
+            Err(e) => Err(e),
         }
     }
 
@@ -315,6 +345,7 @@ impl Meroshare {
         &mut self,
         user: &User,
         company_index: usize,
+        min_unit: u32,
     ) -> Result<IPOAppliedResult, Error> {
         let headers = self.get_auth_header(user).await.unwrap();
         let shares = self.get_current_issue(user).await.unwrap();
@@ -327,7 +358,7 @@ impl Meroshare {
         let body = json!({
             "accountBranchId":bank_details.account_branch_id,
             "accountNumber":bank_details.account_number,
-            "appliedKitta":10,
+            "appliedKitta":min_unit,
             "bankId":bank.id,
             "boid":user_details.boid,
         "companyShareId":opening.company_share_id,
